@@ -1,0 +1,15 @@
+export const AppState = {
+    invoke: null,
+    scripts: [],
+    templates: [],
+    selectedScript: null,
+    selectedTemplate: null,
+    workspaceMode: 'browse',
+    compositionScripts: [],
+    currentTemplateId: null,
+    editMode: 'view',
+    originalScriptData: null,
+    variableValues: {},
+    scriptFavoritesOnly: false,
+    templateFavoritesOnly: false,
+};

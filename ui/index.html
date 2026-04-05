@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scripted Prompt</title>
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Three panel layout -->
+    <div class="app-container">
+        <!-- Left: Scripts panel -->
+        <div class="panel scripts-panel">
+            <div class="panel-header">
+                <div class="panel-title-group">
+                    <i data-lucide="file-text" style="width: 18px; height: 18px; stroke-width: 1.5;"></i>
+                    <span class="panel-title">Scripts</span>
+                    <span class="panel-count" id="scriptsCount">(0)</span>
+                </div>
+                <button class="btn btn-primary" id="newScriptBtn">
+                    <i data-lucide="plus" style="width: 16px; height: 16px; stroke-width: 1.5;"></i>
+                    <span>New</span>
+                </button>
+            </div>
+
+            <!-- Recent items -->
+            <div class="recent-bar" id="recentScripts">
+                <div class="recent-scroll"></div>
+            </div>
+
+            <!-- Search box -->
+            <div class="search-container">
+                <div class="search-input-row">
+                    <i data-lucide="search" class="search-icon"></i>
+                    <input type="text" class="search-input" id="scriptSearch" placeholder="Search Scripts...">
+                </div>
+                <label class="favorite-filter">
+                    <input type="checkbox" id="scriptFavoritesOnly">
+                    <span>Favorites only</span>
+                </label>
+            </div>
+
+            <!-- Tree container -->
+            <div class="tree-container" id="scriptTree"></div>
+        </div>
+
+        <!-- Middle: Templates workspace -->
+        <div class="panel templates-panel">
+            <div class="panel-header">
+                <div class="panel-title-group">
+                    <i data-lucide="layers" style="width: 18px; height: 18px; stroke-width: 1.5;"></i>
+                    <span class="panel-title">Templates</span>
+                    <span class="panel-count" id="templatesCount">(0)</span>
+                </div>
+                <button class="btn btn-primary" id="newTemplateBtn">
+                    <i data-lucide="plus" style="width: 16px; height: 16px; stroke-width: 1.5;"></i>
+                    <span>New</span>
+                </button>
+            </div>
+
+            <!-- Recent items -->
+            <div class="recent-bar" id="recentTemplates">
+                <div class="recent-scroll"></div>
+            </div>
+
+            <!-- Search box -->
+            <div class="search-container">
+                <div class="search-input-row">
+                    <i data-lucide="search" class="search-icon"></i>
+                    <input type="text" class="search-input" id="templateSearch" placeholder="Search Templates...">
+                </div>
+                <label class="favorite-filter">
+                    <input type="checkbox" id="templateFavoritesOnly">
+                    <span>Favorites only</span>
+                </label>
+            </div>
+
+            <!-- Mode 1: Template browse mode -->
+            <div class="tree-container" id="templateTree"></div>
+
+            <!-- Mode 2: Script composition mode -->
+            <div class="composition-workspace hidden" id="compositionWorkspace">
+                <div class="workspace-header">
+                    <button class="btn btn-secondary" id="previewBtn">Preview</button>
+                    <button class="btn btn-secondary" id="clearWorkspaceBtn">Clear</button>
+                    <button class="btn btn-primary" id="saveTemplateBtn">Save as Template</button>
+                </div>
+                <div class="cards-container" id="cardsContainer">
+                    <div class="drop-zone" id="dropZone">
+                        Click "→" button to add scripts
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Preview/Edit panel -->
+        <div class="panel preview-panel">
+            <div class="panel-header">
+                <div class="panel-title-group">
+                    <i data-lucide="eye" style="width: 18px; height: 18px; stroke-width: 1.5;"></i>
+                    <span class="panel-title" id="previewTitle">Preview/Edit</span>
+                </div>
+                <div class="action-buttons" id="actionButtons"></div>
+            </div>
+
+            <div class="preview-content" id="previewContent">
+                <!-- State 1: Script edit mode -->
+                <div class="editor-mode hidden" id="scriptEditorMode">
+                    <div class="form-group">
+                        <label class="form-label">Name</label>
+                        <input type="text" class="form-input" id="scriptName" placeholder="Enter script name">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tags (use / to separate hierarchy, e.g.: coding/python/debug)</label>
+                        <input type="text" class="form-input" id="scriptTags" placeholder="e.g.: development/review">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Content (supports variables: {{variable}} or {{variable:default}})</label>
+                        <textarea class="form-textarea" id="scriptContent" rows="15" placeholder="Enter script content..."></textarea>
+                    </div>
+                    <div class="metadata-display" id="scriptMetadata"></div>
+                </div>
+
+                <!-- State 2: Composition preview mode -->
+                <div class="preview-mode hidden" id="compositionPreviewMode">
+                    <div class="preview-split">
+                        <!-- Preview area -->
+                        <div class="preview-editor-panel">
+                            <h3 class="section-title">Preview</h3>
+                            <textarea class="preview-textarea" id="previewTextarea" rows="20"></textarea>
+                        </div>
+
+                        <!-- Variables input area -->
+                        <div class="variables-panel">
+                            <h3 class="section-title">Variables</h3>
+                            <div class="variables-list" id="variablesList">
+                                <div class="empty-hint">No variables</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty state -->
+                <div class="empty-state" id="emptyState">
+                    <i data-lucide="file-text" class="empty-icon"></i>
+                    <p>Select a Script or Template to view content</p>
+                </div>
+            </div>
+
+            <div class="status-bar-container">
+                <div class="data-buttons">
+                    <button class="btn btn-small btn-secondary" id="exportDataBtn">
+                        <i data-lucide="download" style="width: 14px; height: 14px; stroke-width: 1.5;"></i>
+                        <span>Export</span>
+                    </button>
+                    <button class="btn btn-small btn-secondary" id="importDataBtn">
+                        <i data-lucide="upload" style="width: 14px; height: 14px; stroke-width: 1.5;"></i>
+                        <span>Import</span>
+                    </button>
+                </div>
+                <div class="status-bar" id="statusBar">Ready</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context menu -->
+    <div class="context-menu hidden" id="contextMenu"></div>
+
+    <!-- Modal dialog -->
+    <div class="modal-overlay hidden" id="modalOverlay">
+        <div class="modal" id="modal">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle"></h3>
+                <button class="modal-close" id="modalClose">×</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer" id="modalFooter"></div>
+        </div>
+    </div>
+
+    <!-- Frontend entrypoint: keep runtime code under ui/js/. Do not add parallel legacy files under ui/. -->
+    <script type="module" src="js/bootstrap.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) {
+                window.lucide.createIcons();
+            }
+        });
+    </script>
+</body>
+</html>

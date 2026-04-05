@@ -1,0 +1,52 @@
+{
+  "version": "1.0.0",
+  "scripts": [
+    {
+      "id": "example_001",
+      "name": "Code Review Prompt",
+      "tags": "development/review",
+      "content": "Please review the following {{language:Python}} code from {{project_name}}:\n\n{{code}}\n\nFocus on: {{focus_areas:performance, security, readability}}",
+      "created_at": "2025-10-24T00:00:00Z",
+      "updated_at": "2025-10-24T00:00:00Z",
+      "use_count": 15,
+      "last_used": "2025-10-24T00:00:00Z",
+      "is_favorite": true
+    },
+    {
+      "id": "example_002",
+      "name": "Bug Fix Analysis",
+      "tags": "development/debugging",
+      "content": "I have a bug in my {{language:JavaScript}} code:\n\nBug Description: {{bug_description}}\n\nRelevant Code:\n{{code}}\n\nExpected Behavior: {{expected_behavior}}\nActual Behavior: {{actual_behavior}}\n\nPlease help me identify and fix the issue.",
+      "created_at": "2025-10-24T00:00:00Z",
+      "updated_at": "2025-10-24T00:00:00Z",
+      "use_count": 8,
+      "last_used": "2025-10-24T00:00:00Z",
+      "is_favorite": false
+    },
+    {
+      "id": "example_003",
+      "name": "API Documentation Request",
+      "tags": "development/documentation",
+      "content": "Generate comprehensive API documentation for the following {{language:TypeScript}} function:\n\n{{code}}\n\nInclude:\n- Function description\n- Parameters with types and descriptions\n- Return value\n- Usage examples\n- Potential errors",
+      "created_at": "2025-10-24T00:00:00Z",
+      "updated_at": "2025-10-24T00:00:00Z",
+      "use_count": 12,
+      "last_used": "2025-10-24T00:00:00Z",
+      "is_favorite": false
+    }
+  ],
+  "templates": [
+    {
+      "id": "template_example_001",
+      "name": "Complete Code Review Workflow",
+      "tags": "workflow/review",
+      "script_ids": ["example_001", "example_003"],
+      "variable_values": {},
+      "created_at": "2025-10-24T00:00:00Z",
+      "updated_at": "2025-10-24T00:00:00Z",
+      "use_count": 8,
+      "last_used": "2025-10-24T00:00:00Z",
+      "is_favorite": true
+    }
+  ]
+}

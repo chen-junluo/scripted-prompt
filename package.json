@@ -1,0 +1,30 @@
+{
+  "name": "scripted-prompt",
+  "version": "1.1.0",
+  "description": "A local desktop app for collecting, organizing, and composing reusable prompt blocks.",
+  "main": "index.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "build:release": "node scripts/build-release.js",
+    "build:release:no-bundle": "node scripts/build-release.js --no-bundle",
+    "build:mac": "node scripts/build-release.js --mac",
+    "build:windows": "node scripts/build-release.js --windows",
+    "build:linux": "node scripts/build-release.js --linux",
+    "test": "cargo test --manifest-path src-tauri/Cargo.toml"
+  },
+  "keywords": [
+    "prompt",
+    "tauri",
+    "desktop-app",
+    "productivity",
+    "templates"
+  ],
+  "author": "Dylan Chen",
+  "license": "AGPL-3.0-or-later",
+  "type": "commonjs",
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.1"
+  }
+}
