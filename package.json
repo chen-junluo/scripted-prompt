@@ -7,6 +7,7 @@
     "example": "examples"
   },
   "scripts": {
+    "tauri": "tauri",
     "build:release": "node scripts/build-release.js",
     "build:release:no-bundle": "node scripts/build-release.js --no-bundle",
     "build:mac": "node scripts/build-release.js --mac",
