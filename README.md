@@ -13,7 +13,23 @@ Use the app from **GitHub Releases**.
 Recommended downloads:
 - macOS: `.dmg`
 - Windows: `.msi`
-- Linux: `.AppImage`
+
+## macOS note
+
+The current macOS build is unsigned.
+
+If macOS says the app is damaged or refuses to open it:
+
+1. Open the `.dmg`
+2. Drag `Scripted Prompt.app` to `Applications`
+3. Run:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Scripted Prompt.app"
+open "/Applications/Scripted Prompt.app"
+```
+
+This release path is fine for developer users and small tests. It is not yet the no-warning macOS install path.
 
 If you only want to use the app, start from Releases, not from local build steps.
 
