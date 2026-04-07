@@ -51,6 +51,9 @@ build.log
 # Rust锁文件（根目录）
 /Cargo.lock
 
+# Private docs
+/REQ.md
+
 # 临时文件
 temp/
 tmp/
