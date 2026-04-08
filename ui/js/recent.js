@@ -2,6 +2,7 @@ import { AppState } from './state.js';
 import { Utils } from './utils.js';
 import { selectScript } from './script-editor.js';
 import { selectTemplate } from './composition.js';
+import { confirmDiscardTemplateEditorChanges } from './preview.js';
 
 export function renderRecentScripts() {
     const container = document.getElementById('recentScripts').querySelector('.recent-scroll') ||
@@ -28,7 +29,8 @@ export function renderRecentScripts() {
     `).join('');
 
     container.querySelectorAll('.recent-item').forEach(item => {
-        item.addEventListener('click', () => {
+        item.addEventListener('click', async () => {
+            if (!(await confirmDiscardTemplateEditorChanges())) return;
             const script = AppState.scripts.find(s => s.id === item.dataset.id);
             if (script) selectScript(script);
         });

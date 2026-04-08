@@ -40,17 +40,19 @@ Scripted Prompt gives you two core units:
 - **Script**: one reusable prompt block
 - **Template**: an ordered combination of Scripts
 
-This lets you:
-- keep small prompt units instead of one long note
-- reuse shared variables once across a larger prompt
-- assemble repeatable prompt workflows
-- keep everything local on your own machine
+With AI compression, the workflow now loops both ways:
+
+- build Templates from Scripts
+- compress Templates back into a new Script
+
+That makes it easier to refine, simplify, and reorganize a prompt library over time.
 
 ## Use it for
 
 - keeping reusable role, task, and output-format blocks
 - building prompt workflows from smaller pieces
-- saving common review, writing, and coding prompt sequences
+- compressing long template workflows into one cleaner reusable Script
+- reorganizing your prompt library as your workflow changes
 - exporting and importing local prompt libraries
 
 ## First use
@@ -60,6 +62,9 @@ This lets you:
 3. Download the installer for your platform
 4. Install the app
 5. Create a Script, then combine several Scripts into a Template
+6. When a Template gets too long, compress it into a new Script with AI
+
+This gives you a positive loop: Script → Template → Script.
 
 ## How it works
 
@@ -75,15 +80,7 @@ A **Template** lets you:
 - preview the final prompt
 - save the composition for reuse
 
-## What you get
-
-- three-panel desktop interface
-- separate trees for Scripts and Templates
-- favorites and recent items
-- variable parsing with defaults
-- local JSON storage
-- import and export
-- desktop packaging through Tauri
+With AI compression, a Template can also become a new Script after you review the generated result.
 
 ## Build from source
 
@@ -122,14 +119,11 @@ npm run build:windows
 npm run build:linux
 ```
 
-See [BUILD_GUIDE.md](BUILD_GUIDE.md) if you want to build from source.
-
 ## Release files
 
 Typical outputs:
 - macOS: `.dmg`
 - Windows: `.msi` and `.exe`
-- Linux: `.AppImage` and `.deb`
 
 For normal use, download these files from **GitHub Releases**.
 
@@ -141,11 +135,13 @@ It is not:
 - a cloud sync service
 - a hosted prompt marketplace
 - a collaborative prompt editor
+- a managed AI platform with built-in hosted models
 
 ## Design choices
 
 - local-first storage
 - reusable prompt blocks instead of long prompt documents
+- a loop between Scripts and Templates, not a one-way builder
 - desktop distribution through installers, not browser-first usage
 
 ## Data storage
@@ -155,13 +151,14 @@ Runtime data is stored on the user machine.
 Typical locations:
 - macOS: `~/Library/Application Support/scripted-prompt/`
 - Linux: `~/.local/share/scripted-prompt/`
-- Windows: `%APPDATA%\\scripted-prompt\\`
+- Windows: `%APPDATA%\scripted-prompt\`
 
 The app initializes default data files if they do not exist.
 
+AI settings are stored locally in `settings.json`. Export does not include the API key.
+
 ## Notes
 
-- After UI changes, clear the Tauri build cache before a fresh release build. See [DEPLOY.md](DEPLOY.md).
 - Production builds disable Tauri devtools by default.
 - Default app data is generated at runtime. Local `data/` files are not required for public release.
 

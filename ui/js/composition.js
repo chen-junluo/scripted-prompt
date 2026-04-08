@@ -4,13 +4,15 @@ import { loadData } from './api.js';
 import { renderRecentTemplates } from './recent.js';
 import { renderTemplateTree } from './tree.js';
 import { selectScript } from './script-editor.js';
-import { updateCompositionPreview } from './preview.js';
-import { showModal, showConfirm } from './modals.js';
+import { updateCompositionPreview, confirmDiscardTemplateEditorChanges } from './preview.js';
+import { showConfirm } from './modals.js';
 
-export function selectTemplate(template) {
+export async function selectTemplate(template) {
+    if (!(await confirmDiscardTemplateEditorChanges())) return;
     AppState.selectedTemplate = template;
     AppState.selectedScript = null;
     AppState.currentTemplateId = template.id;
+    AppState.compositionTemplateId = template.id;
     AppState.compositionScripts = template.script_ids
         .map(id => AppState.scripts.find(s => s.id === id))
         .filter(Boolean);
@@ -24,12 +26,18 @@ export function switchToCompositionMode() {
     AppState.workspaceMode = 'composition';
     document.getElementById('templateTree').classList.add('hidden');
     document.getElementById('compositionWorkspace').classList.remove('hidden');
+    if (AppState.compositionScripts.length > 0) {
+        updateCompositionPreview();
+    } else {
+        Utils.showView('empty');
+    }
 }
 
 export function switchToBrowseMode() {
     AppState.workspaceMode = 'browse';
     AppState.compositionScripts = [];
     AppState.currentTemplateId = null;
+    AppState.compositionTemplateId = null;
     AppState.variableValues = {};
     document.getElementById('templateTree').classList.remove('hidden');
     document.getElementById('compositionWorkspace').classList.add('hidden');
@@ -106,8 +114,9 @@ export function renderCompositionCards() {
     });
 
     container.querySelectorAll('.script-card').forEach(card => {
-        card.addEventListener('click', (e) => {
+        card.addEventListener('click', async (e) => {
             if (e.target.closest('.card-remove') || e.target.closest('.card-move-btn')) return;
+            if (!(await confirmDiscardTemplateEditorChanges())) return;
             const script = AppState.scripts.find(s => s.id === card.dataset.scriptId);
             if (script) {
                 selectScript(script);
@@ -145,81 +154,24 @@ export function createNewTemplate() {
     AppState.compositionScripts = [];
     AppState.currentTemplateId = null;
     AppState.selectedTemplate = null;
+    AppState.compositionTemplateId = null;
     AppState.variableValues = {};
     switchToCompositionMode();
     renderCompositionCards();
     Utils.showView('empty');
 }
 
-export async function saveCompositionAsTemplate() {
-    if (AppState.compositionScripts.length === 0) {
-        alert('Please add scripts to composition first');
-        return;
-    }
-
-    const isUpdate = !!AppState.currentTemplateId;
-    showModal(isUpdate ? 'Save Template' : 'Save as Template', `
-        <div class="form-group">
-            <label class="form-label">Name</label>
-            <input type="text" class="form-input" id="templateName"
-                   value="${isUpdate && AppState.selectedTemplate ? Utils.escapeHtml(AppState.selectedTemplate.name) : ''}"
-                   placeholder="Enter template name">
-        </div>
-        <div class="form-group">
-            <label class="form-label">Tags</label>
-            <input type="text" class="form-input" id="templateTags"
-                   value="${isUpdate && AppState.selectedTemplate ? Utils.escapeHtml(AppState.selectedTemplate.tags || '') : ''}"
-                   placeholder="e.g.: workflow/review">
-        </div>
-    `, async () => {
-        const name = document.getElementById('templateName').value.trim();
-        const tags = document.getElementById('templateTags').value.trim();
-        if (!name) {
-            alert('Please enter template name');
-            return false;
-        }
-
-        const scriptIds = AppState.compositionScripts.map(s => s.id);
-        try {
-            if (isUpdate) {
-                await AppState.invoke('update_template', {
-                    id: AppState.currentTemplateId,
-                    name,
-                    tags,
-                    scriptIds,
-                    variableValues: collectCurrentCompositionVariableValues(),
-                });
-            } else {
-                await AppState.invoke('create_template', {
-                    name,
-                    tags: tags || '',
-                    scriptIds,
-                    variableValues: collectCurrentCompositionVariableValues(),
-                });
-            }
-
-            await loadData();
-            renderTemplateTree();
-            renderRecentTemplates();
-            if (AppState.currentTemplateId) {
-                const refreshed = AppState.templates.find(template => template.id === AppState.currentTemplateId);
-                if (refreshed) AppState.selectedTemplate = refreshed;
-            }
-            Utils.showStatus('Saved successfully', 'success');
-            return true;
-        } catch (error) {
-            Utils.showStatus('Save failed: ' + error, 'error');
-            return false;
-        }
-    });
-}
-
-export function clearWorkspace() {
+export async function clearWorkspace() {
+    if (!(await confirmDiscardTemplateEditorChanges())) return;
     AppState.compositionScripts = [];
     AppState.currentTemplateId = null;
     AppState.selectedTemplate = null;
+    AppState.compositionTemplateId = null;
     AppState.variableValues = {};
+    AppState.selectedScript = null;
     switchToBrowseMode();
+    document.getElementById('previewTitle').textContent = 'Preview/Edit';
+    document.getElementById('actionButtons').innerHTML = '';
     Utils.showStatus('Composition cleared', 'success');
 }
 

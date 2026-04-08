@@ -87,7 +87,6 @@
                 <div class="workspace-header">
                     <button class="btn btn-secondary" id="previewBtn">Preview</button>
                     <button class="btn btn-secondary" id="clearWorkspaceBtn">Clear</button>
-                    <button class="btn btn-primary" id="saveTemplateBtn">Save as Template</button>
                 </div>
                 <div class="cards-container" id="cardsContainer">
                     <div class="drop-zone" id="dropZone">
@@ -125,9 +124,17 @@
                     <div class="metadata-display" id="scriptMetadata"></div>
                 </div>
 
-                <!-- State 2: Composition preview mode -->
+                <!-- State 2: Template editor mode -->
                 <div class="preview-mode hidden" id="compositionPreviewMode">
                     <div class="preview-split">
+                        <div class="form-group">
+                            <label class="form-label">Name</label>
+                            <input type="text" class="form-input" id="templateEditorName" placeholder="Enter template name">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tags (use / to separate hierarchy, e.g.: workflow/review)</label>
+                            <input type="text" class="form-input" id="templateEditorTags" placeholder="e.g.: workflow/review">
+                        </div>
                         <!-- Preview area -->
                         <div class="preview-editor-panel">
                             <h3 class="section-title">Preview</h3>
@@ -153,6 +160,10 @@
 
             <div class="status-bar-container">
                 <div class="data-buttons">
+                    <button class="btn btn-small btn-secondary" id="settingsBtn">
+                        <i data-lucide="settings" style="width: 14px; height: 14px; stroke-width: 1.5;"></i>
+                        <span>Settings</span>
+                    </button>
                     <button class="btn btn-small btn-secondary" id="exportDataBtn">
                         <i data-lucide="download" style="width: 14px; height: 14px; stroke-width: 1.5;"></i>
                         <span>Export</span>

@@ -11,7 +11,6 @@ export function selectScript(script) {
     if (item) item.classList.add('selected');
 
     AppState.selectedScript = script;
-    AppState.selectedTemplate = null;
     AppState.editMode = 'view';
     showScriptEditor(script);
 }

@@ -33,7 +33,11 @@ export async function toggleFavorite(type, id) {
 
         if (type === 'template') {
             const updated = AppState.templates.find(template => template.id === id);
-            if (updated && AppState.selectedTemplate?.id === id) {
+            if (updated && AppState.compositionTemplateId === id) {
+                AppState.selectedTemplate = updated;
+                AppState.compositionTemplateId = updated.id;
+                updateCompositionPreview();
+            } else if (updated && AppState.selectedTemplate?.id === id) {
                 AppState.selectedTemplate = updated;
                 updateCompositionPreview();
             } else if (AppState.selectedTemplate) {
@@ -146,9 +150,38 @@ export function showModal(title, bodyHtml, onConfirm) {
     document.getElementById('modalClose').onclick = close;
     document.getElementById('modalCancelBtn').onclick = close;
     document.getElementById('modalConfirmBtn').onclick = async () => {
+        const confirmBtn = document.getElementById('modalConfirmBtn');
+        const cancelBtn = document.getElementById('modalCancelBtn');
+        const closeBtn = document.getElementById('modalClose');
         if (onConfirm) {
-            const result = await onConfirm();
-            if (result !== false) close();
+            try {
+                confirmBtn.disabled = true;
+                cancelBtn.disabled = true;
+                closeBtn.style.pointerEvents = 'none';
+                closeBtn.style.opacity = '0.5';
+                const originalText = confirmBtn.textContent;
+                confirmBtn.textContent = 'Working...';
+                const result = await onConfirm();
+                if (result === false) {
+                    confirmBtn.disabled = false;
+                    cancelBtn.disabled = false;
+                    closeBtn.style.pointerEvents = '';
+                    closeBtn.style.opacity = '';
+                    confirmBtn.textContent = originalText;
+                    return;
+                }
+                close();
+                if (result?.nextModal) {
+                    result.nextModal();
+                }
+            } catch (error) {
+                confirmBtn.disabled = false;
+                cancelBtn.disabled = false;
+                closeBtn.style.pointerEvents = '';
+                closeBtn.style.opacity = '';
+                confirmBtn.textContent = 'Confirm';
+                throw error;
+            }
         } else {
             close();
         }
@@ -156,6 +189,66 @@ export function showModal(title, bodyHtml, onConfirm) {
     overlay.onclick = (e) => {
         if (e.target === overlay) close();
     };
+}
+
+export async function showAiSettingsModal() {
+    const current = AppState.settings || await AppState.invoke('get_settings');
+    AppState.settings = current;
+    showModal('AI Settings', `
+        <div class="form-group">
+            <label class="form-label">Provider</label>
+            <input type="text" class="form-input" id="aiProvider" value="${Utils.escapeHtml(current.provider || 'openai-compatible')}" placeholder="openai-compatible">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Base URL</label>
+            <input type="text" class="form-input" id="aiBaseUrl" value="${Utils.escapeHtml(current.base_url || '')}" placeholder="https://api.poe.com/v1">
+        </div>
+        <div class="form-group">
+            <label class="form-label">API Key</label>
+            <input type="password" class="form-input" id="aiApiKey" value="${Utils.escapeHtml(current.api_key || '')}" placeholder="Enter API key">
+            <div class="variable-hint">Stored locally in settings.json. Export does not include this value.</div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Model</label>
+            <input type="text" class="form-input" id="aiModel" value="${Utils.escapeHtml(current.model || '')}" placeholder="Model name from your provider">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Temperature</label>
+            <input type="number" step="0.1" min="0" max="2" class="form-input" id="aiTemperature" value="${current.temperature ?? 0.2}">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Max output tokens</label>
+            <input type="number" min="1" class="form-input" id="aiMaxOutputTokens" value="${current.max_output_tokens ?? 1200}">
+        </div>
+    `, async () => {
+        const payload = collectAiSettingsPayload();
+        await AppState.invoke('update_ai_settings', { payload });
+        AppState.settings = payload;
+        Utils.showStatus('AI settings saved', 'success');
+    });
+}
+
+function collectAiSettingsPayload() {
+    return {
+        provider: document.getElementById('aiProvider').value.trim() || 'openai-compatible',
+        base_url: document.getElementById('aiBaseUrl').value.trim(),
+        api_key: document.getElementById('aiApiKey').value.trim(),
+        model: document.getElementById('aiModel').value.trim(),
+        temperature: parseOptionalFloat(document.getElementById('aiTemperature').value),
+        max_output_tokens: parseOptionalInt(document.getElementById('aiMaxOutputTokens').value),
+    };
+}
+
+function parseOptionalFloat(value) {
+    if (value === '') return null;
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseOptionalInt(value) {
+    if (value === '') return null;
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : null;
 }
 
 export function showConfirm(title, message) {

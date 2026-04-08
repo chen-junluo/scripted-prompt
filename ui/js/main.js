@@ -2,8 +2,9 @@ import { AppState } from './state.js';
 import { renderScriptTree, renderTemplateTree } from './tree.js';
 import { updateCompositionPreview } from './preview.js';
 import { createNewScript } from './new-items.js';
-import { createNewTemplate, saveCompositionAsTemplate, clearWorkspace } from './composition.js';
+import { createNewTemplate, clearWorkspace } from './composition.js';
 import { exportData, importData } from './data-transfer.js';
+import { showAiSettingsModal } from './modals.js';
 
 export function handleScriptSearch() {
     renderScriptTree();
@@ -30,7 +31,7 @@ export function setupEventListeners() {
         if (AppState.compositionScripts.length > 0) updateCompositionPreview();
     });
     document.getElementById('clearWorkspaceBtn').addEventListener('click', clearWorkspace);
-    document.getElementById('saveTemplateBtn').addEventListener('click', saveCompositionAsTemplate);
+    document.getElementById('settingsBtn').addEventListener('click', showAiSettingsModal);
     document.getElementById('exportDataBtn').addEventListener('click', exportData);
     document.getElementById('importDataBtn').addEventListener('click', importData);
     document.addEventListener('click', (e) => {

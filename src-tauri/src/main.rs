@@ -2,7 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use scripted_prompt_lib::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -15,6 +15,7 @@ struct AppState {
     templates: Mutex<Vec<Template>>,
     history: Mutex<HistoryManager>,
     tags: Mutex<TagManager>,
+    settings: Mutex<Settings>,
     clipboard: ClipboardManager,
 }
 
@@ -40,11 +41,7 @@ fn search_scripts(
 ) -> Result<Vec<Script>, String> {
     let scripts = state.scripts.lock().map_err(|e| e.to_string())?;
 
-    let results = fuzzy_search_scripts(
-        &scripts,
-        &query,
-        tag_filter.as_deref(),
-    );
+    let results = fuzzy_search_scripts(&scripts, &query, tag_filter.as_deref());
 
     Ok(results.into_iter().cloned().collect())
 }
@@ -57,11 +54,7 @@ fn search_templates(
 ) -> Result<Vec<Template>, String> {
     let templates = state.templates.lock().map_err(|e| e.to_string())?;
 
-    let results = fuzzy_search_templates(
-        &templates,
-        &query,
-        tag_filter.as_deref(),
-    );
+    let results = fuzzy_search_templates(&templates, &query, tag_filter.as_deref());
 
     Ok(results.into_iter().cloned().collect())
 }
@@ -75,7 +68,10 @@ fn create_script(
 ) -> Result<Script, String> {
     eprintln!("[create_script] Creating new script: '{}'", name);
     eprintln!("[create_script]   - Tags: {}", tags);
-    eprintln!("[create_script]   - Content length: {} bytes", content.len());
+    eprintln!(
+        "[create_script]   - Content length: {} bytes",
+        content.len()
+    );
 
     let script = Script::new(name, tags, content);
     eprintln!("[create_script] Generated script ID: {}", script.id);
@@ -85,7 +81,10 @@ fn create_script(
         e.to_string()
     })?;
     scripts.push(script.clone());
-    eprintln!("[create_script] Added script to list (total: {})", scripts.len());
+    eprintln!(
+        "[create_script] Added script to list (total: {})",
+        scripts.len()
+    );
 
     // Update tags
     let mut tag_manager = state.tags.lock().map_err(|e| {
@@ -105,7 +104,10 @@ fn create_script(
         e
     })?;
 
-    eprintln!("[create_script] Successfully created script '{}' with ID: {}", script.name, script.id);
+    eprintln!(
+        "[create_script] Successfully created script '{}' with ID: {}",
+        script.name, script.id
+    );
     Ok(script)
 }
 
@@ -124,12 +126,10 @@ fn update_script(
         e.to_string()
     })?;
 
-    let script = scripts.iter_mut()
-        .find(|s| s.id == id)
-        .ok_or_else(|| {
-            eprintln!("[update_script] Script not found: {}", id);
-            "Script not found".to_string()
-        })?;
+    let script = scripts.iter_mut().find(|s| s.id == id).ok_or_else(|| {
+        eprintln!("[update_script] Script not found: {}", id);
+        "Script not found".to_string()
+    })?;
 
     let script_name = script.name.clone();
     eprintln!("[update_script] Updating script '{}'", script_name);
@@ -163,7 +163,10 @@ fn update_script(
         e
     })?;
 
-    eprintln!("[update_script] Successfully updated script '{}'", script_name);
+    eprintln!(
+        "[update_script] Successfully updated script '{}'",
+        script_name
+    );
     Ok(())
 }
 
@@ -177,16 +180,17 @@ fn delete_script(id: String, state: State<AppState>) -> Result<(), String> {
         e.to_string()
     })?;
 
-    let index = scripts.iter()
-        .position(|s| s.id == id)
-        .ok_or_else(|| {
-            eprintln!("[delete_script] Script not found: {}", id);
-            "Script not found".to_string()
-        })?;
+    let index = scripts.iter().position(|s| s.id == id).ok_or_else(|| {
+        eprintln!("[delete_script] Script not found: {}", id);
+        "Script not found".to_string()
+    })?;
 
     let script_name = scripts[index].name.clone();
     scripts.remove(index);
-    eprintln!("[delete_script] Removed script '{}' from scripts list", script_name);
+    eprintln!(
+        "[delete_script] Removed script '{}' from scripts list",
+        script_name
+    );
 
     // Clean up template references to this script
     {
@@ -203,7 +207,10 @@ fn delete_script(id: String, state: State<AppState>) -> Result<(), String> {
 
             if before_count != after_count {
                 affected_templates += 1;
-                eprintln!("[delete_script] Removed script reference from template '{}'", template.name);
+                eprintln!(
+                    "[delete_script] Removed script reference from template '{}'",
+                    template.name
+                );
             }
         }
         eprintln!("[delete_script] Cleaned {} template(s)", affected_templates);
@@ -227,7 +234,10 @@ fn delete_script(id: String, state: State<AppState>) -> Result<(), String> {
         e
     })?;
 
-    eprintln!("[delete_script] Successfully deleted script '{}' with ID: {}", script_name, id);
+    eprintln!(
+        "[delete_script] Successfully deleted script '{}' with ID: {}",
+        script_name, id
+    );
     Ok(())
 }
 
@@ -266,7 +276,8 @@ fn update_template(
 ) -> Result<(), String> {
     let mut templates = state.templates.lock().map_err(|e| e.to_string())?;
 
-    let template = templates.iter_mut()
+    let template = templates
+        .iter_mut()
         .find(|t| t.id == id)
         .ok_or("Template not found")?;
 
@@ -285,7 +296,10 @@ fn update_template(
 
 #[tauri::command]
 fn delete_template(id: String, state: State<AppState>) -> Result<(), String> {
-    eprintln!("[delete_template] Starting deletion for template ID: {}", id);
+    eprintln!(
+        "[delete_template] Starting deletion for template ID: {}",
+        id
+    );
 
     // Lock templates and find the template to delete
     let mut templates = state.templates.lock().map_err(|e| {
@@ -293,16 +307,17 @@ fn delete_template(id: String, state: State<AppState>) -> Result<(), String> {
         e.to_string()
     })?;
 
-    let index = templates.iter()
-        .position(|t| t.id == id)
-        .ok_or_else(|| {
-            eprintln!("[delete_template] Template not found: {}", id);
-            "Template not found".to_string()
-        })?;
+    let index = templates.iter().position(|t| t.id == id).ok_or_else(|| {
+        eprintln!("[delete_template] Template not found: {}", id);
+        "Template not found".to_string()
+    })?;
 
     let template_name = templates[index].name.clone();
     templates.remove(index);
-    eprintln!("[delete_template] Removed template '{}' from templates list", template_name);
+    eprintln!(
+        "[delete_template] Removed template '{}' from templates list",
+        template_name
+    );
 
     // Update tags
     let mut tag_manager = state.tags.lock().map_err(|e| {
@@ -322,7 +337,10 @@ fn delete_template(id: String, state: State<AppState>) -> Result<(), String> {
         e
     })?;
 
-    eprintln!("[delete_template] Successfully deleted template '{}' with ID: {}", template_name, id);
+    eprintln!(
+        "[delete_template] Successfully deleted template '{}' with ID: {}",
+        template_name, id
+    );
     Ok(())
 }
 
@@ -337,7 +355,9 @@ fn replace_script_variables(
     content: String,
     variables: HashMap<String, String>,
 ) -> Result<String, String> {
-    Ok(replace_variables(&content, &variables, |var| format!("{{{{{}}}}}", var)))
+    Ok(replace_variables(&content, &variables, |var| {
+        format!("{{{{{}}}}}", var)
+    }))
 }
 
 #[tauri::command]
@@ -348,6 +368,241 @@ fn parse_script_variables(content: String) -> Result<Vec<String>, String> {
 #[tauri::command]
 fn parse_variables_with_defaults_command(content: String) -> Result<Vec<Variable>, String> {
     Ok(parse_variables_with_defaults(&content))
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct AiSettingsPayload {
+    provider: String,
+    base_url: String,
+    api_key: String,
+    model: String,
+    temperature: Option<f32>,
+    max_output_tokens: Option<u32>,
+}
+
+impl From<AiSettings> for AiSettingsPayload {
+    fn from(value: AiSettings) -> Self {
+        Self {
+            provider: value.provider,
+            base_url: value.base_url,
+            api_key: value.api_key,
+            model: value.model,
+            temperature: value.temperature,
+            max_output_tokens: value.max_output_tokens,
+        }
+    }
+}
+
+impl From<AiSettingsPayload> for AiSettings {
+    fn from(value: AiSettingsPayload) -> Self {
+        Self {
+            provider: value.provider,
+            base_url: value.base_url,
+            api_key: value.api_key,
+            model: value.model,
+            temperature: value.temperature,
+            max_output_tokens: value.max_output_tokens,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct CompressionPreviewResponse {
+    source_template_id: String,
+    source_template_name: String,
+    source_tags: String,
+    source_variable_names: Vec<String>,
+    output_variable_names: Vec<String>,
+    removed_variables: Vec<String>,
+    added_variables: Vec<String>,
+    script_name: String,
+    tags: String,
+    content: String,
+    summary: String,
+    variable_defaults: HashMap<String, String>,
+    warnings: Vec<String>,
+    source_length: usize,
+    output_length: usize,
+}
+
+impl From<logic::ai::CompressionPreview> for CompressionPreviewResponse {
+    fn from(value: logic::ai::CompressionPreview) -> Self {
+        Self {
+            source_template_id: value.source_template_id,
+            source_template_name: value.source_template_name,
+            source_tags: value.source_tags,
+            source_variable_names: value.source_variable_names,
+            output_variable_names: value.output_variable_names,
+            removed_variables: value.removed_variables,
+            added_variables: value.added_variables,
+            script_name: value.script_name,
+            tags: value.tags,
+            content: value.content,
+            summary: value.summary,
+            variable_defaults: value.variable_defaults,
+            warnings: value.warnings,
+            source_length: value.source_length,
+            output_length: value.output_length,
+        }
+    }
+}
+
+#[tauri::command]
+fn get_settings(state: State<AppState>) -> Result<AiSettingsPayload, String> {
+    let settings = state.settings.lock().map_err(|e| e.to_string())?;
+    Ok(settings.ai.clone().into())
+}
+
+#[tauri::command]
+fn update_ai_settings(payload: AiSettingsPayload, state: State<AppState>) -> Result<(), String> {
+    let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
+    settings.ai = payload.into();
+    drop(settings);
+    save_all_data(&state)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn preview_template_compression(
+    template_id: String,
+    suggested_name: Option<String>,
+    suggested_tags: Option<String>,
+    preserve_variables: bool,
+    raw_response: String,
+    state: State<'_, AppState>,
+) -> Result<CompressionPreviewResponse, String> {
+    let template = {
+        let templates = state.templates.lock().map_err(|e| e.to_string())?;
+        templates
+            .iter()
+            .find(|template| template.id == template_id)
+            .cloned()
+            .ok_or_else(|| "Template not found".to_string())?
+    };
+
+    let ordered_scripts = {
+        let scripts = state.scripts.lock().map_err(|e| e.to_string())?;
+        template
+            .script_ids
+            .iter()
+            .map(|script_id| {
+                scripts
+                    .iter()
+                    .find(|script| &script.id == script_id)
+                    .map(|script| (script.name.clone(), script.content.clone()))
+                    .ok_or_else(|| format!("Template references missing script {}", script_id))
+            })
+            .collect::<Result<Vec<_>, _>>()?
+    };
+
+    if ordered_scripts.is_empty() {
+        return Err("Template has no scripts to compress".to_string());
+    }
+
+    let composed_content = ordered_scripts
+        .iter()
+        .map(|(_, content)| content.as_str())
+        .collect::<Vec<_>>()
+        .join("\n\n");
+
+    let settings = {
+        let settings = state.settings.lock().map_err(|e| e.to_string())?;
+        settings.ai.clone()
+    };
+
+    if !settings.is_configured() {
+        return Err(
+            "AI settings are incomplete. Please configure base URL, API key, and model."
+                .to_string(),
+        );
+    }
+
+    let options = logic::ai::CompressionRequestOptions {
+        suggested_name,
+        suggested_tags,
+        preserve_variables,
+    };
+
+    let parsed = logic::ai::parse_compression_response(&raw_response)?;
+    let preview = logic::ai::build_preview_from_response(
+        &template.id,
+        &template.name,
+        &template.tags,
+        &composed_content,
+        &options,
+        parsed,
+    )?;
+
+    Ok(preview.into())
+}
+
+#[tauri::command]
+fn apply_template_compression(
+    preview: CompressionPreviewResponse,
+    state: State<AppState>,
+) -> Result<Script, String> {
+    let source_template = {
+        let templates = state.templates.lock().map_err(|e| e.to_string())?;
+        templates
+            .iter()
+            .find(|template| template.id == preview.source_template_id)
+            .cloned()
+            .ok_or_else(|| "Source template not found".to_string())?
+    };
+
+    let validated_preview = logic::ai::build_preview_from_response(
+        &preview.source_template_id,
+        &preview.source_template_name,
+        &source_template.tags,
+        &{
+            let scripts = state.scripts.lock().map_err(|e| e.to_string())?;
+            source_template
+                .script_ids
+                .iter()
+                .map(|script_id| {
+                    scripts
+                        .iter()
+                        .find(|script| &script.id == script_id)
+                        .map(|script| script.content.clone())
+                        .ok_or_else(|| format!("Template references missing script {}", script_id))
+                })
+                .collect::<Result<Vec<_>, _>>()?
+                .join("\n\n")
+        },
+        &logic::ai::CompressionRequestOptions {
+            suggested_name: Some(preview.script_name.clone()),
+            suggested_tags: Some(preview.tags.clone()),
+            preserve_variables: !preview.removed_variables.is_empty(),
+        },
+        logic::ai::CompressionResponseEnvelope {
+            version: "1".to_string(),
+            result: logic::ai::CompressionResponseResult {
+                script_name: preview.script_name,
+                tags: preview.tags,
+                content: preview.content,
+                variable_defaults: preview.variable_defaults,
+                summary: preview.summary,
+            },
+        },
+    )?;
+
+    let script = Script::new(
+        validated_preview.script_name,
+        validated_preview.tags,
+        validated_preview.content,
+    );
+
+    let mut scripts = state.scripts.lock().map_err(|e| e.to_string())?;
+    scripts.push(script.clone());
+
+    let mut tag_manager = state.tags.lock().map_err(|e| e.to_string())?;
+    tag_manager.update_from_scripts(&scripts);
+
+    drop(tag_manager);
+    drop(scripts);
+    save_all_data(&state)?;
+
+    Ok(script)
 }
 
 #[derive(Serialize)]
@@ -419,7 +674,12 @@ fn rename_tag_segment_command(
     let mut script_arcs: Vec<_> = scripts.iter().cloned().map(std::sync::Arc::new).collect();
     let mut template_arcs: Vec<_> = templates.iter().cloned().map(std::sync::Arc::new).collect();
 
-    let changed = tag_manager.rename_tag_segment(trimmed_old, trimmed_new, &mut script_arcs, &mut template_arcs);
+    let changed = tag_manager.rename_tag_segment(
+        trimmed_old,
+        trimmed_new,
+        &mut script_arcs,
+        &mut template_arcs,
+    );
     if !changed {
         return Err("No matching tags found to rename".to_string());
     }
@@ -534,11 +794,16 @@ fn get_variable_usage_locations(
 }
 
 #[tauri::command]
-fn copy_script_to_clipboard(script_id: String, text: String, state: State<AppState>) -> Result<(), String> {
+fn copy_script_to_clipboard(
+    script_id: String,
+    text: String,
+    state: State<AppState>,
+) -> Result<(), String> {
     match state.clipboard.copy_text(&text) {
         utils::clipboard::ClipboardResult::Success => {
             let mut scripts = state.scripts.lock().map_err(|e| e.to_string())?;
-            let script = scripts.iter_mut()
+            let script = scripts
+                .iter_mut()
                 .find(|script| script.id == script_id)
                 .ok_or("Script not found")?;
 
@@ -553,16 +818,23 @@ fn copy_script_to_clipboard(script_id: String, text: String, state: State<AppSta
             Ok(())
         }
         utils::clipboard::ClipboardResult::Failure(e) => Err(e),
-        utils::clipboard::ClipboardResult::Unsupported => Err("Clipboard not supported".to_string()),
+        utils::clipboard::ClipboardResult::Unsupported => {
+            Err("Clipboard not supported".to_string())
+        }
     }
 }
 
 #[tauri::command]
-fn copy_template_preview_to_clipboard(template_id: String, text: String, state: State<AppState>) -> Result<(), String> {
+fn copy_template_preview_to_clipboard(
+    template_id: String,
+    text: String,
+    state: State<AppState>,
+) -> Result<(), String> {
     match state.clipboard.copy_text(&text) {
         utils::clipboard::ClipboardResult::Success => {
             let mut templates = state.templates.lock().map_err(|e| e.to_string())?;
-            let template = templates.iter_mut()
+            let template = templates
+                .iter_mut()
                 .find(|template| template.id == template_id)
                 .ok_or("Template not found")?;
 
@@ -577,7 +849,9 @@ fn copy_template_preview_to_clipboard(template_id: String, text: String, state: 
             Ok(())
         }
         utils::clipboard::ClipboardResult::Failure(e) => Err(e),
-        utils::clipboard::ClipboardResult::Unsupported => Err("Clipboard not supported".to_string()),
+        utils::clipboard::ClipboardResult::Unsupported => {
+            Err("Clipboard not supported".to_string())
+        }
     }
 }
 
@@ -586,7 +860,9 @@ fn copy_to_clipboard(text: String, state: State<AppState>) -> Result<(), String>
     match state.clipboard.copy_text(&text) {
         utils::clipboard::ClipboardResult::Success => Ok(()),
         utils::clipboard::ClipboardResult::Failure(e) => Err(e),
-        utils::clipboard::ClipboardResult::Unsupported => Err("Clipboard not supported".to_string()),
+        utils::clipboard::ClipboardResult::Unsupported => {
+            Err("Clipboard not supported".to_string())
+        }
     }
 }
 
@@ -594,7 +870,8 @@ fn copy_to_clipboard(text: String, state: State<AppState>) -> Result<(), String>
 fn toggle_favorite_script(id: String, state: State<AppState>) -> Result<(), String> {
     let mut scripts = state.scripts.lock().map_err(|e| e.to_string())?;
 
-    let script = scripts.iter_mut()
+    let script = scripts
+        .iter_mut()
         .find(|s| s.id == id)
         .ok_or("Script not found")?;
 
@@ -610,7 +887,8 @@ fn toggle_favorite_script(id: String, state: State<AppState>) -> Result<(), Stri
 fn toggle_favorite_template(id: String, state: State<AppState>) -> Result<(), String> {
     let mut templates = state.templates.lock().map_err(|e| e.to_string())?;
 
-    let template = templates.iter_mut()
+    let template = templates
+        .iter_mut()
         .find(|t| t.id == id)
         .ok_or("Template not found")?;
 
@@ -653,17 +931,20 @@ fn import_data(import_path: String, state: State<AppState>) -> Result<(), String
 
     eprintln!("[import_data] Reloading data into state...");
     let storage = state.storage.lock().map_err(|e| e.to_string())?;
-    let (scripts, templates, history, tags) = storage.load_all().map_err(|e| e.to_string())?;
+    let (scripts, templates, history, tags, settings) =
+        storage.load_all().map_err(|e| e.to_string())?;
 
     let mut scripts_state = state.scripts.lock().map_err(|e| e.to_string())?;
     let mut templates_state = state.templates.lock().map_err(|e| e.to_string())?;
     let mut history_state = state.history.lock().map_err(|e| e.to_string())?;
     let mut tags_state = state.tags.lock().map_err(|e| e.to_string())?;
+    let mut settings_state = state.settings.lock().map_err(|e| e.to_string())?;
 
     *scripts_state = scripts;
     *templates_state = templates;
     *history_state = history;
     *tags_state = tags;
+    *settings_state = settings;
 
     eprintln!("[import_data] Import completed successfully");
     Ok(())
@@ -703,20 +984,35 @@ fn save_all_data(state: &State<AppState>) -> Result<(), String> {
         err_msg
     })?;
 
+    let settings = state.settings.lock().map_err(|e| {
+        let err_msg = format!("Failed to lock settings: {}", e);
+        eprintln!("[save_all_data] {}", err_msg);
+        err_msg
+    })?;
+
     eprintln!("[save_all_data] All locks acquired successfully");
     eprintln!("[save_all_data]   - Scripts: {}", scripts.len());
     eprintln!("[save_all_data]   - Templates: {}", templates.len());
 
-    storage.save_all_with_data(
-        scripts.iter().map(|s| std::sync::Arc::new(s.clone())).collect(),
-        templates.iter().map(|t| std::sync::Arc::new(t.clone())).collect(),
-        history.clone(),
-        tags.clone(),
-    ).map_err(|e| {
-        let err_msg = format!("Failed to save data to disk: {}", e);
-        eprintln!("[save_all_data] {}", err_msg);
-        err_msg
-    })?;
+    storage
+        .save_all_with_data(
+            scripts
+                .iter()
+                .map(|s| std::sync::Arc::new(s.clone()))
+                .collect(),
+            templates
+                .iter()
+                .map(|t| std::sync::Arc::new(t.clone()))
+                .collect(),
+            history.clone(),
+            tags.clone(),
+            settings.clone(),
+        )
+        .map_err(|e| {
+            let err_msg = format!("Failed to save data to disk: {}", e);
+            eprintln!("[save_all_data] {}", err_msg);
+            err_msg
+        })?;
 
     eprintln!("[save_all_data] Data successfully saved to disk");
     Ok(())
@@ -733,8 +1029,15 @@ fn main() {
     let storage = Storage::new(data_dir);
 
     // Load data
-    let (scripts, templates, history, tags) = storage.load_all()
-        .unwrap_or_else(|_| (vec![], vec![], HistoryManager::default(), TagManager::new()));
+    let (scripts, templates, history, tags, settings) = storage.load_all().unwrap_or_else(|_| {
+        (
+            vec![],
+            vec![],
+            HistoryManager::default(),
+            TagManager::new(),
+            Settings::default(),
+        )
+    });
 
     let app_state = AppState {
         storage: Mutex::new(storage),
@@ -742,6 +1045,7 @@ fn main() {
         templates: Mutex::new(templates),
         history: Mutex::new(history),
         tags: Mutex::new(tags),
+        settings: Mutex::new(settings),
         clipboard: ClipboardManager::new(),
     };
 
@@ -749,6 +1053,10 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .manage(app_state)
         .invoke_handler(tauri::generate_handler![
+            get_settings,
+            update_ai_settings,
+            preview_template_compression,
+            apply_template_compression,
             get_all_scripts,
             get_all_templates,
             search_scripts,

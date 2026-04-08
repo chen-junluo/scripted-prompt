@@ -6,7 +6,7 @@ use regex::Regex;
 pub fn fuzzy_search_scripts<'a>(
     scripts: &'a [Script],
     query: &str,
-    tag_filter: Option<&str>
+    tag_filter: Option<&str>,
 ) -> Vec<&'a Script> {
     if query.is_empty() && tag_filter.is_none() {
         return scripts.iter().collect();
@@ -27,7 +27,9 @@ pub fn fuzzy_search_scripts<'a>(
                 return true;
             }
 
-            fuzzy_match(&script.name, query) || fuzzy_match(&script.tags, query) || fuzzy_match(&script.content, query)
+            fuzzy_match(&script.name, query)
+                || fuzzy_match(&script.tags, query)
+                || fuzzy_match(&script.content, query)
         })
         .collect();
 
@@ -40,7 +42,7 @@ pub fn fuzzy_search_scripts<'a>(
             a.name.cmp(&b.name)
         }
     });
-    
+
     sorted_results
 }
 
@@ -48,7 +50,7 @@ pub fn fuzzy_search_scripts<'a>(
 pub fn fuzzy_search_templates<'a>(
     templates: &'a [Template],
     query: &str,
-    tag_filter: Option<&str>
+    tag_filter: Option<&str>,
 ) -> Vec<&'a Template> {
     if query.is_empty() && tag_filter.is_none() {
         return templates.iter().collect();
@@ -96,18 +98,18 @@ fn fuzzy_match(text: &str, pattern: &str) -> bool {
     // 转换为小写进行大小写不敏感匹配
     let text_lower = text.to_lowercase();
     let pattern_lower = pattern.to_lowercase();
-    
+
     // 完全匹配
     if text_lower.contains(&pattern_lower) {
         return true;
     }
-    
+
     // 单词匹配：检查pattern的每个单词是否都出现在text中
     let pattern_words: Vec<&str> = pattern_lower.split_whitespace().collect();
     if pattern_words.len() > 1 {
         return pattern_words.iter().all(|word| text_lower.contains(word));
     }
-    
+
     // 首字母匹配
     let text_words: Vec<&str> = text_lower.split_whitespace().collect();
     for word in text_words {
@@ -115,14 +117,14 @@ fn fuzzy_match(text: &str, pattern: &str) -> bool {
             return true;
         }
     }
-    
+
     false
 }
 
 /// 按标签层次过滤脚本
 pub fn filter_scripts_by_tag_hierarchy<'a>(
     scripts: &'a [Script],
-    tag_prefix: &str
+    tag_prefix: &str,
 ) -> Vec<&'a Script> {
     scripts
         .iter()
@@ -130,7 +132,7 @@ pub fn filter_scripts_by_tag_hierarchy<'a>(
             if tag_prefix.is_empty() {
                 return true;
             }
-            
+
             // 精确匹配完整标签路径
             script.tags == tag_prefix ||
             // 匹配标签前缀
@@ -144,9 +146,9 @@ pub fn highlight_match(text: &str, query: &str) -> String {
     if query.is_empty() {
         return text.to_string();
     }
-    
+
     let pattern = regex::escape(query);
     let re = Regex::new(&format!("({})", pattern)).expect("Invalid regex pattern");
-    
+
     re.replace_all(text, "[$1]").to_string()
 }

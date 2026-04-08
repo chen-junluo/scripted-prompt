@@ -1,8 +1,8 @@
 // 标签管理（嵌套、重命名、级联删除）
 use crate::data::{Script, Template};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use serde::{Deserialize, Serialize};
 
 /// 标签树节点
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,7 +44,7 @@ impl TagManager {
             all_tags: HashMap::new(),
         }
     }
-    
+
     /// 从脚本和模板中构建标签树
     pub fn build_tag_tree(&mut self, scripts: &[Script], templates: &[Template]) {
         // 重置标签树
@@ -78,70 +78,73 @@ impl TagManager {
             self.add_tag_path(&template.tags);
         }
     }
-    
+
     /// 添加标签路径到树中
     fn add_tag_path(&mut self, tag_path: &str) {
         if tag_path.is_empty() {
             return;
         }
-        
+
         // 更新使用次数
         *self.all_tags.entry(tag_path.to_string()).or_insert(0) += 1;
-        
+
         // 分割路径
         let parts: Vec<&str> = tag_path.split('/').collect();
         if parts.is_empty() {
             return;
         }
-        
+
         let mut current = &mut self.root;
         let mut current_path = String::new();
-        
+
         for part in parts {
             if part.is_empty() {
                 continue;
             }
-            
+
             // 更新当前路径
             if current_path.is_empty() {
                 current_path = part.to_string();
             } else {
                 current_path = format!("{}/{}", current_path, part);
             }
-            
+
             // 获取或创建子节点
-            current = current.children.entry(part.to_string()).or_insert_with(|| {
-                TagNode::new(part.to_string(), current_path.clone())
-            });
-            
+            current = current
+                .children
+                .entry(part.to_string())
+                .or_insert_with(|| TagNode::new(part.to_string(), current_path.clone()));
+
             // 增加使用次数
             current.usage_count += 1;
         }
     }
-    
+
     /// 获取所有标签
     pub fn get_all_tags(&self) -> Vec<(String, usize)> {
-        let mut tags: Vec<(String, usize)> = self.all_tags.iter()
+        let mut tags: Vec<(String, usize)> = self
+            .all_tags
+            .iter()
             .map(|(tag, count)| (tag.clone(), *count))
             .collect();
-        
+
         // 按使用次数降序排序
         tags.sort_by(|a, b| b.1.cmp(&a.1));
-        
+
         tags
     }
-    
+
     /// 获取标签的子标签
     pub fn get_child_tags(&self, parent_tag: &str) -> Vec<(String, usize)> {
         let mut result = Vec::new();
-        
+
         // 查找父标签节点
         let parent_path = if parent_tag.is_empty() {
             &self.root
         } else {
             let parts: Vec<&str> = parent_tag.split('/').collect();
             let mut current = &self.root;
-            
+
             for part in parts {
                 if let Some(child) = current.children.get(part) {
                     current = child;
@@ -149,28 +152,28 @@ impl TagManager {
                     return result;
                 }
             }
-            
+
             current
         };
-        
+
         // 收集子标签
         for (_name, node) in &parent_path.children {
             result.push((node.full_path.clone(), node.usage_count));
         }
-        
+
         // 按使用次数排序
         result.sort_by(|a, b| b.1.cmp(&a.1));
-        
+
         result
     }
-    
+
     /// 重命名标签段（路径段精确匹配，符合需求文档）
     pub fn rename_tag_segment(
         &mut self,
         old_segment: &str,
         new_segment: &str,
         scripts: &mut [Arc<Script>],
-        templates: &mut [Arc<Template>]
+        templates: &mut [Arc<Template>],
     ) -> bool {
         if old_segment == new_segment || old_segment.is_empty() {
             return false;
@@ -188,7 +191,8 @@ impl TagManager {
 
         // 更新模板标签 - 使用路径段匹配
         for template in templates.iter_mut() {
-            let new_tags = Self::rename_tag_segment_in_path(&template.tags, old_segment, new_segment);
+            let new_tags =
+                Self::rename_tag_segment_in_path(&template.tags, old_segment, new_segment);
             if new_tags != template.tags {
                 let mut new_template = (**template).clone();
                 new_template.tags = new_tags;
@@ -206,7 +210,8 @@ impl TagManager {
 
     /// 在标签路径中重命名特定段（精确匹配）
     fn rename_tag_segment_in_path(tag_path: &str, old_segment: &str, new_segment: &str) -> String {
-        tag_path.split('/')
+        tag_path
+            .split('/')
             .map(|segment| {
                 if segment == old_segment {
                     new_segment
@@ -242,7 +247,7 @@ impl TagManager {
         old_tag: &str,
         new_tag: &str,
         scripts: &mut [Script],
-        templates: &mut [Template]
+        templates: &mut [Template],
     ) -> bool {
         if old_tag == new_tag || !self.all_tags.contains_key(old_tag) {
             return false;
@@ -273,13 +278,13 @@ impl TagManager {
 
         true
     }
-    
+
     /// 级联删除标签（同时删除所有子孙标签）
     pub fn cascade_delete_tag(
         &mut self,
         tag: &str,
         scripts: &mut Vec<Arc<Script>>,
-        templates: &mut Vec<Arc<Template>>
+        templates: &mut Vec<Arc<Template>>,
     ) -> bool {
         if !self.all_tags.contains_key(tag) {
             return false;
@@ -315,7 +320,7 @@ impl TagManager {
         &self,
         old_segment: &str,
         scripts: &[Arc<Script>],
-        templates: &[Arc<Template>]
+        templates: &[Arc<Template>],
     ) -> RenameImpact {
         let mut affected_script_tags = HashSet::new();
         let mut affected_script_count = 0;
@@ -350,7 +355,7 @@ impl TagManager {
         &self,
         parent_tag: &str,
         scripts: &[Arc<Script>],
-        templates: &[Arc<Template>]
+        templates: &[Arc<Template>],
     ) -> DeleteImpact {
         let affected_script_tags: Vec<String> = scripts
             .iter()
@@ -385,50 +390,50 @@ impl TagManager {
             template_count,
         }
     }
-    
+
     /// 合并标签
     pub fn merge_tags(
         &mut self,
         source_tag: &str,
         target_tag: &str,
         scripts: &mut [Script],
-        templates: &mut [Template]
+        templates: &mut [Template],
     ) -> bool {
         if source_tag == target_tag || !self.all_tags.contains_key(source_tag) {
             return false;
         }
-        
+
         // 合并脚本标签
         for script in scripts.iter_mut() {
             if script.tags == source_tag {
                 script.tags = target_tag.to_string();
             }
         }
-        
+
         // 合并模板标签
         for template in templates.iter_mut() {
             if template.tags == source_tag {
                 template.tags = target_tag.to_string();
             }
         }
-        
+
         // 重建标签树
         self.build_tag_tree(scripts, templates);
-        
+
         true
     }
-    
+
     /// 获取标签建议
     pub fn get_tag_suggestions(&self, partial_tag: &str) -> Vec<String> {
         let mut suggestions = Vec::new();
-        
+
         // 前缀匹配
         for tag in self.all_tags.keys() {
             if tag.starts_with(partial_tag) {
                 suggestions.push(tag.clone());
             }
         }
-        
+
         // 排序并限制数量
         suggestions.sort_by(|a, b| {
             // 先按长度排序，再按使用次数排序
@@ -442,10 +447,10 @@ impl TagManager {
                 b_count.cmp(a_count)
             }
         });
-        
+
         // 最多返回10个建议
         suggestions.truncate(10);
-        
+
         suggestions
     }
 }
@@ -455,7 +460,7 @@ pub fn validate_tag(tag: &str) -> bool {
     if tag.is_empty() {
         return true;
     }
-    
+
     // 检查标签格式：只允许字母、数字、下划线、连字符和斜杠
     !tag.contains(|c: char| !c.is_alphanumeric() && c != '_' && c != '-' && c != '/') &&
     // 不允许连续斜杠
@@ -605,7 +610,9 @@ mod tests {
         assert_eq!(scripts[0].tags, "coding/rust");
         assert_eq!(templates.len(), 2);
         let all_tags = manager.get_all_tags();
-        assert!(all_tags.iter().all(|(tag, _)| !tag.starts_with("coding/python")));
+        assert!(all_tags
+            .iter()
+            .all(|(tag, _)| !tag.starts_with("coding/python")));
     }
 
     #[test]
@@ -626,7 +633,13 @@ mod tests {
         assert_eq!(impact.script_count, 2);
         assert_eq!(impact.template_count, 1);
         assert!(impact.script_tags.iter().any(|tag| tag == "coding/python"));
-        assert!(impact.script_tags.iter().any(|tag| tag == "coding/python/debug"));
-        assert!(impact.template_tags.iter().any(|tag| tag == "coding/python/review"));
+        assert!(impact
+            .script_tags
+            .iter()
+            .any(|tag| tag == "coding/python/debug"));
+        assert!(impact
+            .template_tags
+            .iter()
+            .any(|tag| tag == "coding/python/review"));
     }
 }

@@ -2,6 +2,7 @@ import { AppState } from './state.js';
 import { Utils } from './utils.js';
 import { selectScript } from './script-editor.js';
 import { selectTemplate, addScriptToComposition } from './composition.js';
+import { confirmDiscardTemplateEditorChanges } from './preview.js';
 import { showTagContextMenu, showItemContextMenu } from './modals.js';
 
 export function buildTagTree(items) {

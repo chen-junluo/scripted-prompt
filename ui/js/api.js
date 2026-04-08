@@ -35,6 +35,7 @@ export async function loadData() {
     try {
         AppState.scripts = await AppState.invoke('get_all_scripts');
         AppState.templates = await AppState.invoke('get_all_templates');
+        AppState.settings = await AppState.invoke('get_settings');
 
         document.getElementById('scriptsCount').textContent = `(${AppState.scripts.length})`;
         document.getElementById('templatesCount').textContent = `(${AppState.templates.length})`;

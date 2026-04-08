@@ -1,14 +1,14 @@
 // JSON文件读写、导入导出
+use crate::data::{Script, Settings, Template};
+use crate::logic::{history::HistoryManager, tags::TagManager};
+use serde_json::Value;
+use std::collections::HashSet;
 use std::error::Error;
 use std::fmt;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::collections::HashSet;
 use uuid::Uuid;
-use serde_json::Value;
-use crate::data::{Script, Template};
-use crate::logic::{history::HistoryManager, tags::TagManager};
 
 // 自定义错误类型，用于处理不同类型的错误
 #[derive(Debug)]
@@ -35,8 +35,8 @@ pub struct Storage {
     templates_file: PathBuf,
     history_file: PathBuf,
     tags_file: PathBuf,
+    settings_file: PathBuf,
 }
-
 
 impl Storage {
     pub fn new(data_dir: PathBuf) -> Self {
@@ -44,45 +44,53 @@ impl Storage {
         if let Err(e) = fs::create_dir_all(&data_dir) {
             eprintln!("警告: 无法创建数据目录: {}", e);
         }
-        
+
         let scripts_file = data_dir.join("scripts.json");
         let templates_file = data_dir.join("templates.json");
         let history_file = data_dir.join("history.json");
         let tags_file = data_dir.join("tags.json");
-        
+        let settings_file = data_dir.join("settings.json");
+
         // 初始化默认数据文件
         if !scripts_file.exists() {
             if let Err(e) = Self::create_default_scripts_file(&scripts_file) {
                 eprintln!("警告: 无法创建默认脚本文件: {}", e);
             }
         }
-        
+
         if !templates_file.exists() {
             if let Err(e) = Self::create_default_templates_file(&templates_file) {
                 eprintln!("警告: 无法创建默认模板文件: {}", e);
             }
         }
-        
+
         if !history_file.exists() {
             if let Err(e) = Self::create_default_history_file(&history_file) {
                 eprintln!("警告: 无法创建默认历史文件: {}", e);
             }
         }
-        
+
         if !tags_file.exists() {
             if let Err(e) = Self::create_default_tags_file(&tags_file) {
                 eprintln!("警告: 无法创建默认标签文件: {}", e);
             }
         }
-        
+
+        if !settings_file.exists() {
+            if let Err(e) = Self::create_default_settings_file(&settings_file) {
+                eprintln!("警告: 无法创建默认设置文件: {}", e);
+            }
+        }
+
         Storage {
             scripts_file,
             templates_file,
             history_file,
             tags_file,
+            settings_file,
         }
     }
-    
+
     // 兼容旧版本的new方法
     pub fn new_with_dev_mode(is_dev_mode: bool) -> Result<Self, Box<dyn Error>> {
         let data_path = if is_dev_mode {
@@ -90,13 +98,14 @@ impl Storage {
             PathBuf::from("./dev_data")
         } else {
             // 生产模式使用用户目录
-            let home_dir = dirs::home_dir().ok_or_else(|| ImportError("无法获取用户目录".to_string()))?;
+            let home_dir =
+                dirs::home_dir().ok_or_else(|| ImportError("无法获取用户目录".to_string()))?;
             home_dir.join(".scripted-prompt")
         };
-        
+
         Ok(Self::new(data_path))
     }
-    
+
     fn create_default_scripts_file(path: &PathBuf) -> Result<(), Box<dyn Error>> {
         // 创建多个示例脚本
         let now = chrono::Utc::now();
@@ -163,7 +172,7 @@ impl Storage {
         fs::write(path, json_content)?;
         Ok(())
     }
-    
+
     fn create_default_templates_file(path: &PathBuf) -> Result<(), Box<dyn Error>> {
         // 创建多个示例模板
         let now = chrono::Utc::now();
@@ -173,7 +182,11 @@ impl Storage {
                 id: "template_example_001".to_string(),
                 name: "Complete Code Review Workflow".to_string(),
                 tags: "workflow/review".to_string(),
-                script_ids: vec!["example_001".to_string(), "example_003".to_string(), "example_004".to_string()],
+                script_ids: vec![
+                    "example_001".to_string(),
+                    "example_003".to_string(),
+                    "example_004".to_string(),
+                ],
                 variable_values: std::collections::HashMap::new(),
                 created_at: "2025-10-24T00:00:00Z".to_string(),
                 updated_at: "2025-10-24T00:00:00Z".to_string(),
@@ -201,7 +214,7 @@ impl Storage {
         fs::write(path, json_content)?;
         Ok(())
     }
-    
+
     fn create_default_history_file(path: &PathBuf) -> Result<(), Box<dyn Error>> {
         let history = HistoryManager::new();
         let json_content = serde_json::to_string_pretty(&history)?;
@@ -215,78 +228,106 @@ impl Storage {
         fs::write(path, json_content)?;
         Ok(())
     }
-    
+
+    fn create_default_settings_file(path: &PathBuf) -> Result<(), Box<dyn Error>> {
+        let settings = Settings::default();
+        let json_content = serde_json::to_string_pretty(&settings)?;
+        fs::write(path, json_content)?;
+        Ok(())
+    }
+
     pub fn load_scripts(&self) -> Result<Vec<Script>, Box<dyn Error>> {
         let content = fs::read_to_string(&self.scripts_file)
             .map_err(|e| ImportError(format!("Failed to read scripts file: {}", e)))?;
         let scripts: Vec<Script> = serde_json::from_str(&content)?;
         Ok(scripts)
     }
-    
+
     pub fn save_scripts(&self, scripts: &[Script]) -> Result<(), Box<dyn Error>> {
         let json_content = serde_json::to_string_pretty(scripts)?;
         fs::write(&self.scripts_file, json_content)
             .map_err(|e| ImportError(format!("Failed to write scripts file: {}", e)))?;
         Ok(())
     }
-    
+
     pub fn load_templates(&self) -> Result<Vec<Template>, Box<dyn Error>> {
         let content = fs::read_to_string(&self.templates_file)
             .map_err(|e| ImportError(format!("Failed to read templates file: {}", e)))?;
         let templates: Vec<Template> = serde_json::from_str(&content)?;
         Ok(templates)
     }
-    
+
     pub fn save_templates(&self, templates: &[Template]) -> Result<(), Box<dyn Error>> {
         let json_content = serde_json::to_string_pretty(templates)?;
         fs::write(&self.templates_file, json_content)
             .map_err(|e| ImportError(format!("Failed to write templates file: {}", e)))?;
         Ok(())
     }
-    
+
     pub fn load_history(&self) -> Result<HistoryManager, Box<dyn Error>> {
         if !self.history_file.exists() {
             return Ok(HistoryManager::new());
         }
-        
+
         let content = fs::read_to_string(&self.history_file)
             .map_err(|e| ImportError(format!("Failed to read history file: {}", e)))?;
         let history: HistoryManager = serde_json::from_str(&content)?;
         Ok(history)
     }
-    
+
     pub fn save_history(&self, history: &HistoryManager) -> Result<(), Box<dyn Error>> {
         let json_content = serde_json::to_string_pretty(history)?;
         fs::write(&self.history_file, json_content)
             .map_err(|e| ImportError(format!("Failed to write history file: {}", e)))?;
         Ok(())
     }
-    
+
     pub fn load_tags(&self) -> Result<TagManager, Box<dyn Error>> {
         if !self.tags_file.exists() {
             return Ok(TagManager::new());
         }
-        
+
         let content = fs::read_to_string(&self.tags_file)
             .map_err(|e| ImportError(format!("Failed to read tags file: {}", e)))?;
         let tags: TagManager = serde_json::from_str(&content)?;
         Ok(tags)
     }
-    
+
     pub fn save_tags(&self, tags: &TagManager) -> Result<(), Box<dyn Error>> {
         let json_content = serde_json::to_string_pretty(tags)?;
         fs::write(&self.tags_file, json_content)
             .map_err(|e| ImportError(format!("Failed to write tags file: {}", e)))?;
         Ok(())
     }
-    
+
+    pub fn load_settings(&self) -> Result<Settings, Box<dyn Error>> {
+        if !self.settings_file.exists() {
+            return Ok(Settings::default());
+        }
+
+        let content = fs::read_to_string(&self.settings_file)
+            .map_err(|e| ImportError(format!("Failed to read settings file: {}", e)))?;
+        let settings: Settings = serde_json::from_str(&content)?;
+        Ok(settings)
+    }
+
+    pub fn save_settings(&self, settings: &Settings) -> Result<(), Box<dyn Error>> {
+        let json_content = serde_json::to_string_pretty(settings)?;
+        fs::write(&self.settings_file, json_content)
+            .map_err(|e| ImportError(format!("Failed to write settings file: {}", e)))?;
+        Ok(())
+    }
+
     pub fn export_all(&self, export_path: &str) -> Result<(), Box<dyn Error>> {
         // 导出所有数据到一个文件
         let scripts = self.load_scripts()?;
         let templates = self.load_templates()?;
 
         let mut export_data = std::collections::HashMap::new();
-        export_data.insert("version".to_string(), serde_json::Value::String("1.0.0".to_string()));
+        export_data.insert(
+            "version".to_string(),
+            serde_json::Value::String("1.0.0".to_string()),
+        );
         export_data.insert("scripts".to_string(), serde_json::to_value(scripts)?);
         export_data.insert("templates".to_string(), serde_json::to_value(templates)?);
 
@@ -306,20 +347,27 @@ impl Storage {
         let mut existing_templates = self.load_templates()?;
         let existing_history = self.load_history()?;
 
-        let imported_scripts: Vec<Script> = match import_data.get("scripts").and_then(|v| v.as_array()) {
-            Some(scripts_value) => serde_json::from_value(Value::Array(scripts_value.clone()))
-                .map_err(|e| ImportError(format!("Failed to deserialize scripts: {}", e)))?,
-            None => Vec::new(),
-        };
+        let imported_scripts: Vec<Script> =
+            match import_data.get("scripts").and_then(|v| v.as_array()) {
+                Some(scripts_value) => serde_json::from_value(Value::Array(scripts_value.clone()))
+                    .map_err(|e| ImportError(format!("Failed to deserialize scripts: {}", e)))?,
+                None => Vec::new(),
+            };
 
-        let imported_templates: Vec<Template> = match import_data.get("templates").and_then(|v| v.as_array()) {
+        let imported_templates: Vec<Template> = match import_data
+            .get("templates")
+            .and_then(|v| v.as_array())
+        {
             Some(templates_value) => serde_json::from_value(Value::Array(templates_value.clone()))
                 .map_err(|e| ImportError(format!("Failed to deserialize templates: {}", e)))?,
             None => Vec::new(),
         };
 
         let mut script_id_map = std::collections::HashMap::new();
-        let existing_script_ids: HashSet<String> = existing_scripts.iter().map(|script| script.id.clone()).collect();
+        let existing_script_ids: HashSet<String> = existing_scripts
+            .iter()
+            .map(|script| script.id.clone())
+            .collect();
         let mut used_script_ids = existing_script_ids.clone();
 
         for mut script in imported_scripts {
@@ -332,7 +380,10 @@ impl Storage {
             existing_scripts.push(script);
         }
 
-        let existing_template_ids: std::collections::HashSet<String> = existing_templates.iter().map(|template| template.id.clone()).collect();
+        let existing_template_ids: std::collections::HashSet<String> = existing_templates
+            .iter()
+            .map(|template| template.id.clone())
+            .collect();
         let mut used_template_ids = existing_template_ids.clone();
 
         for mut template in imported_templates {
@@ -367,36 +418,50 @@ impl Storage {
 
         Ok(())
     }
-    
+
     /// 加载所有数据
-    pub fn load_all(&self) -> Result<(Vec<Script>, Vec<Template>, HistoryManager, TagManager), Box<dyn Error>> {
+    pub fn load_all(
+        &self,
+    ) -> Result<
+        (
+            Vec<Script>,
+            Vec<Template>,
+            HistoryManager,
+            TagManager,
+            Settings,
+        ),
+        Box<dyn Error>,
+    > {
         let scripts = self.load_scripts()?;
         let templates = self.load_templates()?;
         let history = self.load_history()?;
         let tags = self.load_tags()?;
-        
-        Ok((scripts, templates, history, tags))
+        let settings = self.load_settings()?;
+
+        Ok((scripts, templates, history, tags, settings))
     }
-    
+
     /// 保存所有数据
     pub fn save_all(&self) -> Result<(), Box<dyn Error>> {
-        let (scripts, templates, history, tags) = self.load_all()?;
-        
+        let (scripts, templates, history, tags, settings) = self.load_all()?;
+
         self.save_scripts(&scripts)?;
         self.save_templates(&templates)?;
         self.save_history(&history)?;
         self.save_tags(&tags)?;
-        
+        self.save_settings(&settings)?;
+
         Ok(())
     }
-    
+
     /// 使用提供的数据保存所有内容
     pub fn save_all_with_data(
         &self,
         scripts: Vec<Arc<Script>>,
         templates: Vec<Arc<Template>>,
         history: HistoryManager,
-        tags: TagManager
+        tags: TagManager,
+        settings: Settings,
     ) -> Result<(), Box<dyn Error>> {
         // 转换Arc<Script>到Script
         let script_vec: Vec<Script> = scripts.iter().map(|s| (**s).clone()).collect();
@@ -406,6 +471,7 @@ impl Storage {
         self.save_templates(&template_vec)?;
         self.save_history(&history)?;
         self.save_tags(&tags)?;
+        self.save_settings(&settings)?;
 
         Ok(())
     }

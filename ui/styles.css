@@ -112,6 +112,24 @@ body {
     transform: translateY(-1px);
 }
 
+.btn:disabled {
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.btn-primary:disabled {
+    background-color: #9CA3AF;
+    border-color: #9CA3AF;
+    color: #F9FAFB;
+}
+
+.btn-secondary:disabled {
+    background-color: #F9FAFB;
+    border-color: #E5E7EB;
+    color: #9CA3AF;
+}
+
 .btn-secondary {
     background-color: #FFFFFF;
     color: #374151;
@@ -138,6 +156,19 @@ body {
 .action-buttons {
     display: flex;
     gap: 8px;
+}
+
+.preview-panel .panel-title-group {
+    min-width: 0;
+}
+
+.preview-panel .panel-title-group > [data-lucide],
+.preview-panel .panel-title-group > svg {
+    flex-shrink: 0;
+}
+
+.preview-panel .panel-title {
+    min-width: 0;
 }
 
 /* ===== Recent Items Bar ===== */

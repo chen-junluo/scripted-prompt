@@ -24,7 +24,8 @@ impl Validator {
     pub fn validate_variable(&self, variable: &str) -> ValidationResult {
         if !variable.starts_with("{{") || !variable.ends_with("}}") {
             return ValidationResult::Invalid(
-                "变量格式无效。请使用 {{variable_name}} 或 {{variable_name:default_value}} 格式。".to_string(),
+                "变量格式无效。请使用 {{variable_name}} 或 {{variable_name:default_value}} 格式。"
+                    .to_string(),
             );
         }
 
@@ -34,7 +35,11 @@ impl Validator {
             return ValidationResult::Invalid("变量名不能为空".to_string());
         }
 
-        let name = trimmed.split_once(':').map(|(name, _)| name).unwrap_or(trimmed).trim();
+        let name = trimmed
+            .split_once(':')
+            .map(|(name, _)| name)
+            .unwrap_or(trimmed)
+            .trim();
         if !validate_variable_name(name) {
             return ValidationResult::Invalid(
                 "变量格式无效。变量名不能为空，且不能包含 : 或 } 字符。".to_string(),
@@ -51,7 +56,12 @@ impl Validator {
             return ValidationResult::Invalid("名称不能为空".to_string());
         }
 
-        if name.contains('<') || name.contains('>') || name.contains('&') || name.contains('"') || name.contains('\\') {
+        if name.contains('<')
+            || name.contains('>')
+            || name.contains('&')
+            || name.contains('"')
+            || name.contains('\\')
+        {
             return ValidationResult::Invalid("名称包含非法字符".to_string());
         }
 
@@ -71,8 +81,11 @@ impl Validator {
             if !segment.is_empty() {
                 match self.validate_name(segment) {
                     ValidationResult::Invalid(msg) => {
-                        return ValidationResult::Invalid(format!("标签段'{}'无效: {}", segment, msg));
-                    },
+                        return ValidationResult::Invalid(format!(
+                            "标签段'{}'无效: {}",
+                            segment, msg
+                        ));
+                    }
                     _ => continue,
                 }
             }

@@ -1,6 +1,6 @@
 // Script数据结构与方法
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,7 +34,7 @@ impl Script {
             is_favorite: false,
         }
     }
-    
+
     pub fn update(&mut self, name: Option<String>, tags: Option<String>, content: Option<String>) {
         if let Some(name) = name {
             self.name = name;
@@ -47,38 +47,42 @@ impl Script {
         }
         self.updated_at = Utc::now().to_rfc3339();
     }
-    
+
     pub fn increment_use_count(&mut self) {
         self.use_count += 1;
         self.last_used = Utc::now();
     }
-    
+
     pub fn get_tags_hierarchy(&self) -> Vec<String> {
-        self.tags.split('/').filter(|s| !s.is_empty()).map(String::from).collect()
+        self.tags
+            .split('/')
+            .filter(|s| !s.is_empty())
+            .map(String::from)
+            .collect()
     }
-    
+
     pub fn matches_tags(&self, tag_filter: &str) -> bool {
         if tag_filter.is_empty() {
             return true;
         }
-        
+
         // 精确匹配完整标签路径
         if self.tags == tag_filter {
             return true;
         }
-        
+
         // 匹配标签前缀
         if self.tags.starts_with(&format!("{}/", tag_filter)) {
             return true;
         }
-        
+
         false
     }
-    
+
     pub fn contains_text(&self, search_text: &str) -> bool {
         let search_lower = search_text.to_lowercase();
-        self.name.to_lowercase().contains(&search_lower) ||
-        self.content.to_lowercase().contains(&search_lower) ||
-        self.tags.to_lowercase().contains(&search_lower)
+        self.name.to_lowercase().contains(&search_lower)
+            || self.content.to_lowercase().contains(&search_lower)
+            || self.tags.to_lowercase().contains(&search_lower)
     }
 }

@@ -1,15 +1,15 @@
 // 使用历史统计
 use crate::data::{Script, Template};
 use chrono::Local;
-use std::collections::{HashMap, VecDeque};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, VecDeque};
 
 /// 使用记录
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UsageRecord {
     pub id: String,
-    pub item_type: String, // "script" 或 "template"
-    pub timestamp: String, // 使用字符串存储时间戳
+    pub item_type: String,        // "script" 或 "template"
+    pub timestamp: String,        // 使用字符串存储时间戳
     pub duration_ms: Option<u64>, // 执行持续时间（毫秒）
 }
 
@@ -108,14 +108,18 @@ impl HistoryManager {
 
     /// 获取使用频率统计（过去指定天数）
     pub fn get_usage_stats(&self, days: u32) -> HashMap<String, usize> {
-        let cutoff = Local::now().checked_sub_days(chrono::Days::new(days.into())).unwrap();
+        let cutoff = Local::now()
+            .checked_sub_days(chrono::Days::new(days.into()))
+            .unwrap();
         let mut stats = HashMap::new();
 
         for record in self.records.iter() {
             // 解析时间戳字符串为DateTime对象进行比较
             if let Ok(timestamp) = chrono::DateTime::parse_from_rfc3339(&record.timestamp) {
                 if timestamp.with_timezone(&Local) >= cutoff {
-                    *stats.entry(format!("{}_{}", record.item_type, record.id)).or_insert(0) += 1;
+                    *stats
+                        .entry(format!("{}_{}", record.item_type, record.id))
+                        .or_insert(0) += 1;
                 }
             }
         }
@@ -151,14 +155,18 @@ impl HistoryManager {
 pub fn calculate_script_trend(
     history_manager: &HistoryManager,
     script_id: &str,
-    days: u32
+    days: u32,
 ) -> Vec<(String, usize)> {
-    let cutoff = Local::now().checked_sub_days(chrono::Days::new(days.into())).unwrap();
+    let cutoff = Local::now()
+        .checked_sub_days(chrono::Days::new(days.into()))
+        .unwrap();
     let mut daily_counts: HashMap<String, usize> = HashMap::new();
 
     // 初始化每一天的计数
     for i in 0..days {
-        let date = Local::now().checked_sub_days(chrono::Days::new(i.into())).unwrap();
+        let date = Local::now()
+            .checked_sub_days(chrono::Days::new(i.into()))
+            .unwrap();
         let date_str = date.format("%Y-%m-%d").to_string();
         daily_counts.insert(date_str, 0);
     }
@@ -170,7 +178,10 @@ pub fn calculate_script_trend(
             if let Ok(timestamp) = chrono::DateTime::parse_from_rfc3339(&record.timestamp) {
                 if timestamp.with_timezone(&Local) >= cutoff {
                     // 格式化日期字符串用于统计
-                    let date_str = timestamp.with_timezone(&Local).format("%Y-%m-%d").to_string();
+                    let date_str = timestamp
+                        .with_timezone(&Local)
+                        .format("%Y-%m-%d")
+                        .to_string();
                     *daily_counts.entry(date_str).or_insert(0) += 1;
                 }
             }

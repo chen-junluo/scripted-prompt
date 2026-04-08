@@ -54,9 +54,13 @@ pub fn parse_variables_with_defaults(content: &str) -> Vec<Variable> {
 }
 
 /// 替换内容中的变量，支持自定义回退函数
-pub fn replace_variables<F>(content: &str, variable_values: &HashMap<String, String>, fallback: F) -> String
+pub fn replace_variables<F>(
+    content: &str,
+    variable_values: &HashMap<String, String>,
+    fallback: F,
+) -> String
 where
-    F: Fn(&str) -> String
+    F: Fn(&str) -> String,
 {
     let re = Regex::new(r"\{\{\s*([^}:]+)(?::([^}]+))?\s*\}\}").expect("Invalid regex pattern");
 
@@ -75,7 +79,8 @@ where
                 fallback(variable_name)
             }
         }
-    }).to_string()
+    })
+    .to_string()
 }
 
 /// 验证变量名是否有效（支持 Unicode 和特殊字符，符合需求）
@@ -107,7 +112,10 @@ mod tests {
         assert_eq!(variables[0].name, "name");
         assert_eq!(variables[0].default_value, None);
         assert_eq!(variables[1].name, "project");
-        assert_eq!(variables[1].default_value.as_deref(), Some("Scripted Prompt"));
+        assert_eq!(
+            variables[1].default_value.as_deref(),
+            Some("Scripted Prompt")
+        );
     }
 
     #[test]
@@ -118,7 +126,10 @@ mod tests {
 
         let replaced = replace_variables(content, &values, |var| format!("<{}>", var));
 
-        assert_eq!(replaced, "Hello Dylan, welcome to Scripted Prompt in <city>.");
+        assert_eq!(
+            replaced,
+            "Hello Dylan, welcome to Scripted Prompt in <city>."
+        );
     }
 
     #[test]

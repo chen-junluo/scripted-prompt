@@ -4,14 +4,12 @@ pub mod logic;
 pub mod utils;
 
 // Re-export commonly used types
-pub use data::{Script, Template, Storage};
+pub use data::{AiSettings, Script, Settings, Storage, Template};
 pub use logic::{
+    ai,
     history::HistoryManager,
+    search::{fuzzy_search_scripts, fuzzy_search_templates},
     tags::TagManager,
     variable::{parse_variables, parse_variables_with_defaults, replace_variables, Variable},
-    search::{fuzzy_search_scripts, fuzzy_search_templates},
 };
-pub use utils::{
-    clipboard::ClipboardManager,
-    validator::Validator,
-};
+pub use utils::{clipboard::ClipboardManager, validator::Validator};

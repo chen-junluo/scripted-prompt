@@ -124,21 +124,35 @@ import sys
 
 path = Path(sys.argv[1])
 script = path.read_text()
-old = """if [[ -n \"$VOLUME_ICON_FILE\" ]]; then
-	echo \"Copying volume icon file '$VOLUME_ICON_FILE'...\"
-	cp \"$VOLUME_ICON_FILE\" \"$MOUNT_DIR/.VolumeIcon.icns\"
-	SetFile -c icnC \"$MOUNT_DIR/.VolumeIcon.icns\"
-fi"""
-new = """if [[ -n \"$VOLUME_ICON_FILE\" ]]; then
-	echo \"Skipping volume icon copy to keep DMG root clean...\"
-fi"""
-if old in script:
-    path.write_text(script.replace(old, new, 1))
-elif new not in script:
-    raise SystemExit("未找到可替换的 volume icon 复制逻辑")
+replacements = [
+    (
+        """if [[ -n \"$BACKGROUND_FILE\" ]]; then
+\techo \"Copying background file '$BACKGROUND_FILE'...\"
+\t[[ -d \"$MOUNT_DIR/.background\" ]] || mkdir \"$MOUNT_DIR/.background\"
+\tcp \"$BACKGROUND_FILE\" \"$MOUNT_DIR/.background/$BACKGROUND_FILE_NAME\"
+fi""",
+        """if [[ -n \"$BACKGROUND_FILE\" ]]; then
+\techo \"Skipping background file copy from generated script; clean builder handles absolute path separately...\"
+fi""",
+    ),
+    (
+        """if [[ -n \"$VOLUME_ICON_FILE\" ]]; then
+\techo \"Copying volume icon file '$VOLUME_ICON_FILE'...\"
+\tcp \"$VOLUME_ICON_FILE\" \"$MOUNT_DIR/.VolumeIcon.icns\"
+\tSetFile -c icnC \"$MOUNT_DIR/.VolumeIcon.icns\"
+fi""",
+        """if [[ -n \"$VOLUME_ICON_FILE\" ]]; then
+\techo \"Skipping volume icon copy to keep DMG root clean...\"
+fi""",
+    ),
+]
+for old, new in replacements:
+    if old in script:
+        script = script.replace(old, new, 1)
+path.write_text(script)
 PY
 
-    log_success "已修补 DMG 打包脚本，跳过 .VolumeIcon.icns"
+    log_success "已修补 DMG 打包脚本，跳过背景图和 .VolumeIcon.icns 的二次复制"
 }
 
 build_clean_macos_dmg() {
@@ -149,7 +163,9 @@ build_clean_macos_dmg() {
     local APP_NAME="Scripted Prompt.app"
     local APP_SOURCE="$MACOS_DIR/$APP_NAME"
     local DMG_SCRIPT="$DMG_DIR/bundle_dmg.sh"
-    local BACKGROUND_PATH="$(cd "$(dirname "$0")/.." && pwd)/src-tauri/icons/dmg-background-clean.png"
+    local SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    local PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+    local BACKGROUND_PATH="$PROJECT_ROOT/src-tauri/icons/dmg-background-clean.png"
     local TEMP_SOURCE_DIR="/tmp/scripted-prompt-dmg-clean"
     local PRODUCT_NAME="$(grep -o '"productName": "[^"]*' src-tauri/tauri.conf.json | cut -d'"' -f4)"
     local VERSION="$(grep -o '"version": "[^"]*' src-tauri/tauri.conf.json | head -1 | cut -d'"' -f4)"
@@ -186,6 +202,7 @@ build_clean_macos_dmg() {
     (
         cd "$DMG_DIR"
         ./bundle_dmg.sh \
+            --skip-jenkins \
             --volname "$PRODUCT_NAME" \
             --background "$BACKGROUND_PATH" \
             --window-size "$WIDTH" "$HEIGHT" \

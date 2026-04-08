@@ -41,7 +41,7 @@ impl ClipboardManager {
 
         Self
     }
-    
+
     /// 将文本复制到剪贴板
     pub fn copy_text(&self, text: &str) -> ClipboardResult {
         #[cfg(target_os = "macos")]
@@ -87,19 +87,20 @@ impl ClipboardManager {
             Err("Unsupported platform".to_string())
         }
     }
-    
+
     /// 清空剪贴板
     pub fn clear(&self) -> ClipboardResult {
         self.copy_text("")
     }
-    
+
     // macOS 实现
     #[cfg(target_os = "macos")]
     fn copy_text_macos(&self, text: &str) -> ClipboardResult {
         let mut child = match Command::new("pbcopy")
             .env("LANG", "en_US.UTF-8")
             .stdin(Stdio::piped())
-            .spawn() {
+            .spawn()
+        {
             Ok(child) => child,
             Err(e) => return ClipboardResult::Failure(e.to_string()),
         };
@@ -119,9 +120,7 @@ impl ClipboardManager {
 
     #[cfg(target_os = "macos")]
     fn get_text_macos(&self) -> Result<String, String> {
-        let output = match Command::new("pbpaste")
-            .env("LANG", "en_US.UTF-8")
-            .output() {
+        let output = match Command::new("pbpaste").env("LANG", "en_US.UTF-8").output() {
             Ok(output) => output,
             Err(e) => return Err(e.to_string()),
         };
@@ -135,7 +134,7 @@ impl ClipboardManager {
             Err(e) => Err(e.to_string()),
         }
     }
-    
+
     // Linux 实现
     #[cfg(target_os = "linux")]
     fn copy_text_linux(&self, text: &str) -> ClipboardResult {
@@ -144,11 +143,11 @@ impl ClipboardManager {
         if result == ClipboardResult::Success {
             return result;
         }
-        
+
         // 尝试使用 xsel
         self.copy_with_command(text, "xsel", &["--clipboard", "--input"])
     }
-    
+
     #[cfg(target_os = "linux")]
     fn get_text_linux(&self) -> Result<String, String> {
         // 尝试使用 xclip
@@ -156,51 +155,52 @@ impl ClipboardManager {
         if result.is_ok() {
             return result;
         }
-        
+
         // 尝试使用 xsel
         self.get_with_command("xsel", &["--clipboard", "--output"])
     }
-    
+
     #[cfg(target_os = "linux")]
     fn copy_with_command(&self, text: &str, command: &str, args: &[&str]) -> ClipboardResult {
         let mut child = match Command::new(command)
             .args(args)
             .stdin(Stdio::piped())
-            .spawn() {
+            .spawn()
+        {
             Ok(child) => child,
             Err(_) => return ClipboardResult::Failure(format!("Command not found: {}", command)),
         };
-        
+
         if let Some(mut stdin) = child.stdin.take() {
             match stdin.write_all(text.as_bytes()) {
                 Ok(_) => (),
                 Err(e) => return ClipboardResult::Failure(e.to_string()),
             }
         }
-        
+
         match child.wait() {
             Ok(_) => ClipboardResult::Success,
             Err(e) => ClipboardResult::Failure(e.to_string()),
         }
     }
-    
+
     #[cfg(target_os = "linux")]
     fn get_with_command(&self, command: &str, args: &[&str]) -> Result<String, String> {
         let output = match Command::new(command).args(args).output() {
             Ok(output) => output,
             Err(_) => return Err(format!("Command not found: {}", command)),
         };
-        
+
         if !output.status.success() {
             return Err("Command failed".to_string());
         }
-        
+
         match String::from_utf8(output.stdout) {
             Ok(text) => Ok(text),
             Err(e) => Err(e.to_string()),
         }
     }
-    
+
     // Windows 实现
     #[cfg(target_os = "windows")]
     fn copy_text_windows(&self, text: &str) -> ClipboardResult {
@@ -208,50 +208,51 @@ impl ClipboardManager {
         // 实际项目中应该使用更合适的Windows剪贴板API
         let mut child = match Command::new("cmd")
             .args(["/c", "echo", text, "|", "clip"])
-            .spawn() {
+            .spawn()
+        {
             Ok(child) => child,
             Err(e) => return ClipboardResult::Failure(e.to_string()),
         };
-        
+
         match child.wait() {
             Ok(_) => ClipboardResult::Success,
             Err(e) => ClipboardResult::Failure(e.to_string()),
         }
     }
-    
+
     #[cfg(target_os = "windows")]
     fn get_text_windows(&self) -> Result<String, String> {
         // Windows 实现会使用 winapi 或其他方式
         // 实际项目中应该使用更合适的Windows剪贴板API
         Err("Not implemented for Windows".to_string())
     }
-    
+
     // 默认实现（非特定平台）
     #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
     fn copy_text_macos(&self, _text: &str) -> ClipboardResult {
         ClipboardResult::Unsupported
     }
-    
+
     #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
     fn get_text_macos(&self) -> Result<String, String> {
         Err("Unsupported platform".to_string())
     }
-    
+
     #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
     fn copy_text_linux(&self, _text: &str) -> ClipboardResult {
         ClipboardResult::Unsupported
     }
-    
+
     #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
     fn get_text_linux(&self) -> Result<String, String> {
         Err("Unsupported platform".to_string())
     }
-    
+
     #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
     fn copy_text_windows(&self, _text: &str) -> ClipboardResult {
         ClipboardResult::Unsupported
     }
-    
+
     #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
     fn get_text_windows(&self) -> Result<String, String> {
         Err("Unsupported platform".to_string())

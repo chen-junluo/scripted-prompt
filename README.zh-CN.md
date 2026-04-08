@@ -40,17 +40,19 @@ Scripted Prompt 有两个核心单元：
 - **Script**：一个可复用的 prompt 片段
 - **Template**：多个 Script 的有序组合
 
-这让你可以：
-- 保存小的 prompt 单元，而不是维护一整段长文本
-- 在更大的 prompt 中只填写一次共享变量
-- 反复使用固定的 prompt 流程
-- 把所有内容保留在本机
+加上 AI compression 之后，这个 workflow 变成了双向循环：
+
+- 你可以把多个 Script 组合成 Template
+- 也可以把一个 Template 再压缩成新的 Script
+
+这样更适合持续整理 prompt 库。你不用只会越堆越长，也可以把成熟流程重新收敛成更干净的积木。
 
 ## 适合用来做什么
 
 - 收藏可复用的角色、任务和输出格式片段
 - 用多个小片段拼出完整 prompt 流程
-- 保存常用的写作、评审、编码 prompt 组合
+- 把已经变长的 Template 压缩成一个更干净的 Script
+- 随着工作方式变化，持续整理 prompt 库
 - 导入和导出本地 prompt 库
 
 ## 首次使用
@@ -60,6 +62,9 @@ Scripted Prompt 有两个核心单元：
 3. 下载对应平台的安装包
 4. 安装应用
 5. 先创建一个 Script，再把多个 Script 组合成 Template
+6. 当某个 Template 已经稳定下来后，用 AI 把它压缩成新的 Script
+
+这样就形成一个正向循环：Script → Template → Script。
 
 ## 工作方式
 
@@ -75,15 +80,7 @@ Scripted Prompt 有两个核心单元：
 - 预览最终 prompt
 - 保存组合结果，方便复用
 
-## 你会得到什么
-
-- 三栏桌面界面
-- Scripts 和 Templates 分离的树形结构
-- 收藏与最近使用
-- 带默认值的变量解析
-- 本地 JSON 存储
-- 导入与导出
-- 基于 Tauri 的桌面打包
+加上 AI compression 之后，一个 Template 在审阅结果后，也可以再变回新的 Script。
 
 ## 从源码构建
 
@@ -122,30 +119,29 @@ npm run build:windows
 npm run build:linux
 ```
 
-如果你要自己构建，再看 [BUILD_GUIDE.md](BUILD_GUIDE.md)。
-
 ## 发布文件
 
 常见输出：
 - macOS：`.dmg`
 - Windows：`.msi` 和 `.exe`
-- Linux：`.AppImage` 和 `.deb`
 
 普通使用请直接从 **GitHub Releases** 下载。
 
 ## 边界
 
-Scripted Prompt 用于本地 prompt 管理和组合。
+Scripted Prompt 用于本地 prompt 管理、组合和整理。
 
 它不是：
 - 云同步服务
 - 在线 prompt 市场
 - 多人协作编辑器
+- 内置托管模型的 AI 平台
 
 ## 设计取舍
 
 - 本地优先存储
 - 用可复用 prompt 片段代替长 prompt 文档
+- 让 Script 和 Template 之间可以形成循环，而不是单向堆叠
 - 用桌面安装包分发，而不是优先走网页使用
 
 ## 数据存储
@@ -159,9 +155,10 @@ Scripted Prompt 用于本地 prompt 管理和组合。
 
 如果数据文件不存在，应用会自动初始化默认数据。
 
+AI settings 会保存在本地 `settings.json`。导出数据时不会包含 API key。
+
 ## 说明
 
-- UI 改动后，正式构建前建议清理 Tauri 构建缓存。见 [DEPLOY.md](DEPLOY.md)。
 - 正式版默认关闭 Tauri devtools。
 - 默认应用数据在运行时生成，公开仓库不需要提交本地 `data/` 文件。
 
