@@ -1,6 +1,6 @@
 {
   "name": "scripted-prompt",
-  "version": "1.3.0",
+  "version": "1.3.2",
   "description": "A local desktop app for collecting, organizing, and composing reusable prompt blocks.",
   "main": "index.js",
   "directories": {
