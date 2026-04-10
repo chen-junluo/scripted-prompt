@@ -5,6 +5,7 @@ import { createNewScript } from './new-items.js';
 import { createNewTemplate, clearWorkspace } from './composition.js';
 import { exportData, importData } from './data-transfer.js';
 import { showAiSettingsModal } from './modals.js';
+import { initPaneLayout } from './pane-layout.js';
 
 export function handleScriptSearch() {
     renderScriptTree();
@@ -39,4 +40,5 @@ export function setupEventListeners() {
             document.getElementById('contextMenu').classList.add('hidden');
         }
     });
+    initPaneLayout();
 }

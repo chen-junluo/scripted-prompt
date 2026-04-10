@@ -407,6 +407,18 @@ impl From<AiSettingsPayload> for AiSettings {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+struct TemplateCompressionPreviewRequest {
+    template_id: Option<String>,
+    template_name: Option<String>,
+    template_tags: Option<String>,
+    script_ids: Option<Vec<String>>,
+    suggested_name: Option<String>,
+    suggested_tags: Option<String>,
+    preserve_variables: bool,
+    raw_response: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 struct CompressionPreviewResponse {
     source_template_id: String,
     source_template_name: String,
@@ -447,6 +459,44 @@ impl From<logic::ai::CompressionPreview> for CompressionPreviewResponse {
     }
 }
 
+fn resolve_script_contents(
+    state: &State<'_, AppState>,
+    script_ids: &[String],
+) -> Result<Vec<String>, String> {
+    let scripts = state.scripts.lock().map_err(|e| e.to_string())?;
+    script_ids
+        .iter()
+        .map(|script_id| {
+            scripts
+                .iter()
+                .find(|script| &script.id == script_id)
+                .map(|script| script.content.clone())
+                .ok_or_else(|| format!("Template references missing script {}", script_id))
+        })
+        .collect()
+}
+
+fn resolve_ordered_script_entries(
+    state: &State<'_, AppState>,
+    script_ids: &[String],
+) -> Result<Vec<(String, String)>, String> {
+    let scripts = state.scripts.lock().map_err(|e| e.to_string())?;
+    script_ids
+        .iter()
+        .map(|script_id| {
+            scripts
+                .iter()
+                .find(|script| &script.id == script_id)
+                .map(|script| (script.name.clone(), script.content.clone()))
+                .ok_or_else(|| format!("Template references missing script {}", script_id))
+        })
+        .collect()
+}
+
+fn compose_script_contents(contents: &[String]) -> String {
+    contents.join("\n\n")
+}
+
 #[tauri::command]
 fn get_settings(state: State<AppState>) -> Result<AiSettingsPayload, String> {
     let settings = state.settings.lock().map_err(|e| e.to_string())?;
@@ -464,46 +514,65 @@ fn update_ai_settings(payload: AiSettingsPayload, state: State<AppState>) -> Res
 
 #[tauri::command]
 fn preview_template_compression(
-    template_id: String,
-    suggested_name: Option<String>,
-    suggested_tags: Option<String>,
-    preserve_variables: bool,
-    raw_response: String,
+    request: TemplateCompressionPreviewRequest,
     state: State<'_, AppState>,
 ) -> Result<CompressionPreviewResponse, String> {
-    let template = {
-        let templates = state.templates.lock().map_err(|e| e.to_string())?;
-        templates
-            .iter()
-            .find(|template| template.id == template_id)
-            .cloned()
-            .ok_or_else(|| "Template not found".to_string())?
-    };
+    let template_name;
+    let template_tags;
+    let ordered_scripts;
+    let template_id;
 
-    let ordered_scripts = {
-        let scripts = state.scripts.lock().map_err(|e| e.to_string())?;
-        template
+    if let Some(existing_template_id) = request.template_id.clone() {
+        let template = {
+            let templates = state.templates.lock().map_err(|e| e.to_string())?;
+            templates
+                .iter()
+                .find(|template| template.id == existing_template_id)
+                .cloned()
+                .ok_or_else(|| "Template not found".to_string())?
+        };
+
+        ordered_scripts = resolve_ordered_script_entries(&state, &template.script_ids)?;
+
+        template_id = template.id;
+        template_name = template.name;
+        template_tags = template.tags;
+    } else {
+        let draft_name = request
+            .template_name
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("New Template")
+            .to_string();
+        let draft_tags = request
+            .template_tags
+            .as_deref()
+            .map(str::trim)
+            .unwrap_or("")
+            .to_string();
+        let script_ids = request
             .script_ids
-            .iter()
-            .map(|script_id| {
-                scripts
-                    .iter()
-                    .find(|script| &script.id == script_id)
-                    .map(|script| (script.name.clone(), script.content.clone()))
-                    .ok_or_else(|| format!("Template references missing script {}", script_id))
-            })
-            .collect::<Result<Vec<_>, _>>()?
-    };
+            .clone()
+            .ok_or_else(|| "script_ids is required for draft templates".to_string())?;
+
+        ordered_scripts = resolve_ordered_script_entries(&state, &script_ids)?;
+
+        template_id = format!("draft:{}", draft_name);
+        template_name = draft_name;
+        template_tags = draft_tags;
+    }
 
     if ordered_scripts.is_empty() {
         return Err("Template has no scripts to compress".to_string());
     }
 
-    let composed_content = ordered_scripts
-        .iter()
-        .map(|(_, content)| content.as_str())
-        .collect::<Vec<_>>()
-        .join("\n\n");
+    let composed_content = compose_script_contents(
+        &ordered_scripts
+            .iter()
+            .map(|(_, content)| content.clone())
+            .collect::<Vec<_>>(),
+    );
 
     let settings = {
         let settings = state.settings.lock().map_err(|e| e.to_string())?;
@@ -518,16 +587,16 @@ fn preview_template_compression(
     }
 
     let options = logic::ai::CompressionRequestOptions {
-        suggested_name,
-        suggested_tags,
-        preserve_variables,
+        suggested_name: request.suggested_name,
+        suggested_tags: request.suggested_tags,
+        preserve_variables: request.preserve_variables,
     };
 
-    let parsed = logic::ai::parse_compression_response(&raw_response)?;
+    let parsed = logic::ai::parse_compression_response(&request.raw_response)?;
     let preview = logic::ai::build_preview_from_response(
-        &template.id,
-        &template.name,
-        &template.tags,
+        &template_id,
+        &template_name,
+        &template_tags,
         &composed_content,
         &options,
         parsed,
@@ -550,25 +619,16 @@ fn apply_template_compression(
             .ok_or_else(|| "Source template not found".to_string())?
     };
 
+    let composed_content = compose_script_contents(&resolve_script_contents(
+        &state,
+        &source_template.script_ids,
+    )?);
+
     let validated_preview = logic::ai::build_preview_from_response(
         &preview.source_template_id,
         &preview.source_template_name,
         &source_template.tags,
-        &{
-            let scripts = state.scripts.lock().map_err(|e| e.to_string())?;
-            source_template
-                .script_ids
-                .iter()
-                .map(|script_id| {
-                    scripts
-                        .iter()
-                        .find(|script| &script.id == script_id)
-                        .map(|script| script.content.clone())
-                        .ok_or_else(|| format!("Template references missing script {}", script_id))
-                })
-                .collect::<Result<Vec<_>, _>>()?
-                .join("\n\n")
-        },
+        &composed_content,
         &logic::ai::CompressionRequestOptions {
             suggested_name: Some(preview.script_name.clone()),
             suggested_tags: Some(preview.tags.clone()),

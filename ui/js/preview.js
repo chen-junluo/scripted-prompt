@@ -1,15 +1,38 @@
 import { AppState } from './state.js';
 import { Utils } from './utils.js';
-import { loadData } from './api.js';
-import { renderRecentScripts, renderRecentTemplates } from './recent.js';
-import { renderScriptTree, renderTemplateTree } from './tree.js';
+import { loadData, refreshLibraryViews } from './api.js';
+import { renderRecentScripts } from './recent.js';
+import { renderScriptTree } from './tree.js';
 import { toggleFavorite, showAiSettingsModal, showModal } from './modals.js';
-import { selectTemplate } from './composition.js';
+import { selectTemplate, setCompositionDraftTemplate } from './composition.js';
 import { selectScript } from './script-editor.js';
 
+function getDraftTemplateMetadata() {
+    const snapshot = getTemplateEditorSnapshot();
+    return {
+        name: snapshot.name || AppState.compositionDraftTemplate?.name || '',
+        tags: snapshot.tags || AppState.compositionDraftTemplate?.tags || '',
+        variableValues: { ...snapshot.variableValues },
+    };
+}
+
 function getActiveCompositionTemplate() {
-    if (!AppState.compositionTemplateId) return null;
-    return AppState.templates.find(template => template.id === AppState.compositionTemplateId) || null;
+    if (AppState.compositionTemplateId) {
+        return AppState.templates.find(template => template.id === AppState.compositionTemplateId) || null;
+    }
+
+    if (!AppState.compositionDraftTemplate || AppState.compositionScripts.length === 0) return null;
+
+    const draft = getDraftTemplateMetadata();
+
+    return {
+        id: null,
+        name: draft.name,
+        tags: draft.tags,
+        is_favorite: false,
+        variable_values: draft.variableValues,
+        isDraft: true,
+    };
 }
 
 function getTemplateEditorName() {
@@ -53,12 +76,31 @@ export async function confirmDiscardTemplateEditorChanges() {
 
 function bindTemplateEditorDirtyTracking(activeTemplate) {
     if (!activeTemplate) return;
-    getTemplateEditorName()?.addEventListener('input', updateTemplateEditorSaveButtonState);
-    getTemplateEditorTags()?.addEventListener('input', updateTemplateEditorSaveButtonState);
+    getTemplateEditorName()?.addEventListener('input', () => {
+        if (!activeTemplate.id) {
+            setCompositionDraftTemplate({ name: getTemplateEditorName()?.value.trim() || '' });
+        }
+        updateTemplateEditorSaveButtonState();
+    });
+    getTemplateEditorTags()?.addEventListener('input', () => {
+        if (!activeTemplate.id) {
+            setCompositionDraftTemplate({ tags: getTemplateEditorTags()?.value.trim() || '' });
+        }
+        updateTemplateEditorSaveButtonState();
+    });
     document.querySelectorAll('#variablesList .variable-input').forEach(input => {
         input.addEventListener('input', updateTemplateEditorSaveButtonState);
     });
     updateTemplateEditorSaveButtonState();
+}
+
+function buildTemplateEditorOriginalData(activeTemplate) {
+    const snapshot = getTemplateEditorSnapshot();
+    return {
+        name: activeTemplate?.name || snapshot.name,
+        tags: activeTemplate?.tags || snapshot.tags,
+        variableValues: { ...snapshot.variableValues },
+    };
 }
 
 function buildCompressionPrompt(templateName, templateTags, orderedScripts, composedContent, options) {
@@ -251,25 +293,27 @@ export async function updateCompositionPreview() {
     Utils.showView('compositionPreviewMode');
     document.getElementById('previewTitle').textContent = activeTemplate ? 'Template Editor' : 'Composition Preview';
     document.getElementById('actionButtons').innerHTML = activeTemplate
-        ? `<button class="btn btn-secondary" id="favoriteTemplateBtn">${activeTemplate.is_favorite ? 'Unfavorite' : 'Favorite'}</button><button class="btn btn-secondary" id="compressTemplateBtn">${AppState.isCompressing ? 'Compressing…' : 'Compress with AI'}</button><button class="btn btn-primary" id="copyPreviewBtn">Copy</button><button class="btn btn-primary" id="saveTemplateEditorBtn">Save</button>`
+        ? `${activeTemplate.id ? `<button class="btn btn-secondary" id="favoriteTemplateBtn">${activeTemplate.is_favorite ? 'Unfavorite' : 'Favorite'}</button>` : ''}<button class="btn btn-secondary" id="compressTemplateBtn">${AppState.isCompressing ? 'Compressing…' : 'Compress with AI'}</button><button class="btn btn-primary" id="copyPreviewBtn">Copy</button><button class="btn btn-primary" id="saveTemplateEditorBtn">Save</button>`
         : `<button class="btn btn-primary" id="copyPreviewBtn">Copy</button>`;
 
     const templateNameInput = getTemplateEditorName();
     const templateTagsInput = getTemplateEditorTags();
     if (templateNameInput) {
-        templateNameInput.value = activeTemplate?.name || '';
+        const nextName = activeTemplate?.name || '';
+        if (templateNameInput.value !== nextName && document.activeElement !== templateNameInput) {
+            templateNameInput.value = nextName;
+        }
         templateNameInput.readOnly = !activeTemplate;
     }
     if (templateTagsInput) {
-        templateTagsInput.value = activeTemplate?.tags || '';
+        const nextTags = activeTemplate?.tags || '';
+        if (templateTagsInput.value !== nextTags && document.activeElement !== templateTagsInput) {
+            templateTagsInput.value = nextTags;
+        }
         templateTagsInput.readOnly = !activeTemplate;
     }
     AppState.templateEditorOriginalData = activeTemplate
-        ? {
-            name: activeTemplate.name || '',
-            tags: activeTemplate.tags || '',
-            variableValues: { ...AppState.variableValues },
-        }
+        ? buildTemplateEditorOriginalData(activeTemplate)
         : null;
 
     document.getElementById('copyPreviewBtn').addEventListener('click', copyPreviewContent);
@@ -305,6 +349,7 @@ export function renderVariablesPanel(variables, usageInfo, combinedContent) {
     if (variables.length === 0) {
         container.innerHTML = '<div class="empty-hint">No variables</div>';
         document.getElementById('previewTextarea').value = combinedContent;
+        updateTemplateEditorSaveButtonState();
         return;
     }
 
@@ -368,19 +413,39 @@ async function saveTemplateEditor() {
     }
 
     try {
-        await AppState.invoke('update_template', {
-            id: activeTemplate.id,
-            name,
-            tags,
-            scriptIds: AppState.compositionScripts.map(script => script.id),
-            variableValues: AppState.variableValues,
-        });
-        await loadData();
-        renderTemplateTree();
-        renderRecentTemplates();
-        renderScriptTree();
-        const updated = AppState.templates.find(template => template.id === activeTemplate.id);
+        const scriptIds = AppState.compositionScripts.map(script => script.id);
+        let savedTemplateId = activeTemplate.id;
+
+        if (!activeTemplate.id) {
+            setCompositionDraftTemplate({
+                name,
+                tags,
+                variableValues: { ...AppState.variableValues },
+            });
+        }
+
+        if (activeTemplate.id) {
+            await AppState.invoke('update_template', {
+                id: activeTemplate.id,
+                name,
+                tags,
+                scriptIds,
+                variableValues: AppState.variableValues,
+            });
+        } else {
+            const created = await AppState.invoke('create_template', {
+                name,
+                tags,
+                scriptIds,
+                variableValues: AppState.variableValues,
+            });
+            savedTemplateId = created.id;
+        }
+
+        await refreshLibraryViews();
+        const updated = AppState.templates.find(template => template.id === savedTemplateId);
         if (updated) {
+            AppState.compositionDraftTemplate = null;
             AppState.selectedTemplate = updated;
             AppState.currentTemplateId = updated.id;
             AppState.compositionTemplateId = updated.id;
@@ -388,15 +453,9 @@ async function saveTemplateEditor() {
                 .map(id => AppState.scripts.find(script => script.id === id))
                 .filter(Boolean);
             AppState.variableValues = updated.variable_values || {};
-            AppState.templateEditorOriginalData = {
-                name: updated.name || '',
-                tags: updated.tags || '',
-                variableValues: { ...(updated.variable_values || {}) },
-            };
-            renderRecentTemplates();
             await updateCompositionPreview();
         }
-        Utils.showStatus('Template saved', 'success');
+        Utils.showStatus(activeTemplate.id ? 'Template saved' : 'Template created', 'success');
     } catch (error) {
         Utils.showStatus('Save failed: ' + error, 'error');
     }
@@ -410,7 +469,6 @@ export async function copyPreviewContent() {
             const selectedId = activeTemplate.id;
             await AppState.invoke('copy_template_preview_to_clipboard', { templateId: selectedId, text: content });
             await loadData();
-            renderRecentTemplates();
             const updated = AppState.templates.find(template => template.id === selectedId);
             if (updated) {
                 AppState.selectedTemplate = updated;
@@ -443,7 +501,9 @@ async function compressSelectedTemplate() {
     }));
     const composedContent = orderedScripts.map(script => script.content).join('\n\n');
 
-    const suggestedName = `${activeTemplate.name} - Compressed`;
+    const templateName = activeTemplate.name || getTemplateEditorName()?.value.trim() || 'New Template';
+    const templateTags = activeTemplate.tags || getTemplateEditorTags()?.value.trim() || '';
+    const suggestedName = `${templateName} - Compressed`;
     showModal('Compress Template with AI', `
         <div class="form-group">
             <label class="form-label">Output script name</label>
@@ -451,7 +511,7 @@ async function compressSelectedTemplate() {
         </div>
         <div class="form-group">
             <label class="form-label">Tags</label>
-            <input type="text" class="form-input" id="compressScriptTags" value="${Utils.escapeHtml(activeTemplate.tags || '')}">
+            <input type="text" class="form-input" id="compressScriptTags" value="${Utils.escapeHtml(templateTags)}">
         </div>
         <div class="form-group">
             <label class="favorite-filter">
@@ -472,8 +532,8 @@ async function compressSelectedTemplate() {
             const suggestedTagsValue = document.getElementById('compressScriptTags').value.trim();
             const preserveVariables = document.getElementById('compressPreserveVariables').checked;
             const prompt = buildCompressionPrompt(
-                activeTemplate.name,
-                activeTemplate.tags || '',
+                templateName,
+                templateTags,
                 orderedScripts,
                 composedContent,
                 {
@@ -483,13 +543,25 @@ async function compressSelectedTemplate() {
                 },
             );
             const rawResponse = await requestCompressionFromProvider(currentSettings, prompt);
-            const preview = await AppState.invoke('preview_template_compression', {
-                templateId: activeTemplate.id,
-                suggestedName: suggestedNameValue,
-                suggestedTags: suggestedTagsValue,
-                preserveVariables,
-                rawResponse,
-            });
+            const previewPayload = activeTemplate.id
+                ? {
+                    templateId: activeTemplate.id,
+                    suggestedName: suggestedNameValue,
+                    suggestedTags: suggestedTagsValue,
+                    preserveVariables,
+                    rawResponse,
+                }
+                : {
+                    templateId: null,
+                    templateName,
+                    templateTags,
+                    scriptIds: AppState.compositionScripts.map(script => script.id),
+                    suggestedName: suggestedNameValue,
+                    suggestedTags: suggestedTagsValue,
+                    preserveVariables,
+                    rawResponse,
+                };
+            const preview = await AppState.invoke('preview_template_compression', previewPayload);
             AppState.compressionPreview = preview;
             return {
                 nextModal: () => showCompressionPreview(preview),

@@ -12,9 +12,9 @@
 </head>
 <body>
     <!-- Three panel layout -->
-    <div class="app-container">
+    <div class="app-container" id="appContainer">
         <!-- Left: Scripts panel -->
-        <div class="panel scripts-panel">
+        <div class="panel scripts-panel" data-pane="scripts">
             <div class="panel-header">
                 <div class="panel-title-group">
                     <i data-lucide="file-text" style="width: 18px; height: 18px; stroke-width: 1.5;"></i>
@@ -48,8 +48,10 @@
             <div class="tree-container" id="scriptTree"></div>
         </div>
 
+        <div class="pane-divider pane-divider-vertical" id="leftPaneDivider" data-divider="left" role="separator" aria-orientation="vertical" aria-label="Resize scripts and templates panels" tabindex="0"></div>
+
         <!-- Middle: Templates workspace -->
-        <div class="panel templates-panel">
+        <div class="panel templates-panel" data-pane="templates">
             <div class="panel-header">
                 <div class="panel-title-group">
                     <i data-lucide="layers" style="width: 18px; height: 18px; stroke-width: 1.5;"></i>
@@ -96,8 +98,11 @@
             </div>
         </div>
 
+        <div class="pane-divider pane-divider-vertical" id="rightPaneDivider" data-divider="right" role="separator" aria-orientation="vertical" aria-label="Resize templates and preview panels" tabindex="0"></div>
+        <div class="pane-divider pane-divider-horizontal" id="bottomPaneDivider" data-divider="bottom" role="separator" aria-orientation="horizontal" aria-label="Resize preview panel height" tabindex="0"></div>
+
         <!-- Right: Preview/Edit panel -->
-        <div class="panel preview-panel">
+        <div class="panel preview-panel" data-pane="preview">
             <div class="panel-header">
                 <div class="panel-title-group">
                     <i data-lucide="eye" style="width: 18px; height: 18px; stroke-width: 1.5;"></i>

@@ -44,3 +44,11 @@ export async function loadData() {
         throw error;
     }
 }
+
+export async function refreshLibraryViews() {
+    await loadData();
+    renderScriptTree();
+    renderTemplateTree();
+    renderRecentScripts();
+    renderRecentTemplates();
+}

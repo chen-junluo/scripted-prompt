@@ -1,14 +1,27 @@
 import { AppState } from './state.js';
 import { Utils } from './utils.js';
-import { loadData } from './api.js';
-import { renderRecentTemplates } from './recent.js';
-import { renderTemplateTree } from './tree.js';
+import { refreshLibraryViews } from './api.js';
 import { selectScript } from './script-editor.js';
 import { updateCompositionPreview, confirmDiscardTemplateEditorChanges } from './preview.js';
 import { showConfirm } from './modals.js';
 
+export function clearCompositionDraftTemplate() {
+    AppState.compositionDraftTemplate = null;
+}
+
+export function setCompositionDraftTemplate(patch = {}) {
+    AppState.compositionDraftTemplate = {
+        name: '',
+        tags: '',
+        variableValues: {},
+        ...(AppState.compositionDraftTemplate || {}),
+        ...patch,
+    };
+}
+
 export async function selectTemplate(template) {
     if (!(await confirmDiscardTemplateEditorChanges())) return;
+    clearCompositionDraftTemplate();
     AppState.selectedTemplate = template;
     AppState.selectedScript = null;
     AppState.currentTemplateId = template.id;
@@ -39,6 +52,7 @@ export function switchToBrowseMode() {
     AppState.currentTemplateId = null;
     AppState.compositionTemplateId = null;
     AppState.variableValues = {};
+    clearCompositionDraftTemplate();
     document.getElementById('templateTree').classList.remove('hidden');
     document.getElementById('compositionWorkspace').classList.add('hidden');
     Utils.showView('empty');
@@ -150,15 +164,26 @@ export function collectCurrentCompositionVariableValues() {
     );
 }
 
-export function createNewTemplate() {
-    AppState.compositionScripts = [];
-    AppState.currentTemplateId = null;
+export async function createNewTemplate() {
+    if (!(await confirmDiscardTemplateEditorChanges())) return;
+    if (AppState.compositionScripts.length === 0) {
+        Utils.showStatus('Add at least one script before creating a template', 'error');
+        return;
+    }
+
     AppState.selectedTemplate = null;
+    AppState.selectedScript = null;
+    AppState.currentTemplateId = null;
     AppState.compositionTemplateId = null;
-    AppState.variableValues = {};
+    setCompositionDraftTemplate({
+        name: '',
+        tags: '',
+        variableValues: collectCurrentCompositionVariableValues(),
+    });
+    AppState.variableValues = { ...AppState.compositionDraftTemplate.variableValues };
     switchToCompositionMode();
     renderCompositionCards();
-    Utils.showView('empty');
+    updateCompositionPreview();
 }
 
 export async function clearWorkspace() {
@@ -169,6 +194,7 @@ export async function clearWorkspace() {
     AppState.compositionTemplateId = null;
     AppState.variableValues = {};
     AppState.selectedScript = null;
+    clearCompositionDraftTemplate();
     switchToBrowseMode();
     document.getElementById('previewTitle').textContent = 'Preview/Edit';
     document.getElementById('actionButtons').innerHTML = '';
@@ -183,11 +209,9 @@ export async function duplicateTemplate(template) {
             scriptIds: template.script_ids || [],
             variableValues: template.variable_values || {},
         });
-        await loadData();
-        renderTemplateTree();
-        renderRecentTemplates();
+        await refreshLibraryViews();
         const createdTemplate = AppState.templates.find(t => t.id === newTemplate.id);
-        if (createdTemplate) selectTemplate(createdTemplate);
+        if (createdTemplate) await selectTemplate(createdTemplate);
         Utils.showStatus('Duplicated successfully', 'success');
     } catch (error) {
         Utils.showStatus('Duplicate failed: ' + error, 'error');
@@ -199,9 +223,7 @@ export async function deleteTemplate(template) {
     if (!confirmed) return;
     try {
         await AppState.invoke('delete_template', { id: template.id });
-        await loadData();
-        renderTemplateTree();
-        renderRecentTemplates();
+        await refreshLibraryViews();
         if (AppState.currentTemplateId === template.id) switchToBrowseMode();
         Utils.showStatus('Deleted successfully', 'success');
     } catch (error) {

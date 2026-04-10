@@ -8,6 +8,7 @@ export const AppState = {
     selectedScript: null,
     selectedTemplate: null,
     compositionTemplateId: null,
+    compositionDraftTemplate: null,
     workspaceMode: 'browse',
     compositionScripts: [],
     currentTemplateId: null,

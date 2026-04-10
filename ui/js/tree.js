@@ -154,8 +154,9 @@ export function renderTreeNode(container, node, type) {
             `;
         }
 
-        itemDiv.addEventListener('click', () => {
+        itemDiv.addEventListener('click', async () => {
             if (type === 'script') {
+                if (!(await confirmDiscardTemplateEditorChanges())) return;
                 selectScript(item);
             } else {
                 selectTemplate(item);
